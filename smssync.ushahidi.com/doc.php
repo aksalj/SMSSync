@@ -24,7 +24,7 @@
 
 <script type="text/javascript" src="js/screenshots.js"></script>
 
-<script src="libs/js/google-code-prettify/prettify.js"></script>
+<script src="libs/google-code-prettify/prettify.js"></script>
 
 <script src="libs/bootstrap/js/bootstrap.min.js"></script>
 
@@ -160,7 +160,7 @@ In the app itself, ensure <strong>*Get Reply from Server*</strong> is checked to
 <p>&nbsp;</p>
 <strong>Task</strong>
 <p>
-SMSSync supports execution of tasks defined on the server. Currently it supports sending of messages sent from the Sync URL as SMS. This feature is targeted towards developers. The app can be configured to poll the server for new tasks at a given frequency. The server then needs to respond to HTTP GET requests with <code>?task=send</code> (for example <code>http://callback_url/smssync?task=send&secret=secret_key</code>). The format of this response is shown below.
+SMSSync supports execution of tasks defined on the server. Currently it supports sending of messages sent from the Sync URL as SMS. This feature is targeted towards developers. The app can be configured to poll the server for new tasks at a given frequency. The server then needs to respond to HTTP GET requests with <code>?task=send</code> (for example <code>http://callback_url/smssync?task=send</code>). The format of this response is shown below.
 </p>
 <br /><br />        
 
@@ -191,6 +191,9 @@ SMSSync supports execution of tasks defined on the server. Currently it supports
 
 <strong>Notes:</strong>
 <ul>
+<li>
+The incoming messages may also be transmitted as JSON or XML data via POST or PUT request.
+</li>
 <li>
 The secret key provided by the server must match the secret key configured within SMSSync, otherwise SMSSync will not execute the task.
 </li>
@@ -309,7 +312,7 @@ There is also a SMSSync webservice for Django that implements most features. You
     <div class="container">
         <div class="row-fluid">
             <div class="span4">
-                Generated: 27-06-2013
+                Generated: 29-08-2013
             </div>
             <div class="span4">
                 Copyright &copy; 2010 - 2013 <a href="http://www.ushahidi.com">Ushahidi.com</a>

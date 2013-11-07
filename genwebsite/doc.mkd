@@ -115,6 +115,9 @@ SMSSync supports execution of tasks defined on the server. Currently it supports
 <strong>Notes:</strong>
 <ul>
 <li>
+The incoming messages may also be transmitted as JSON or XML data via POST or PUT request.
+</li>
+<li>
 The secret key provided by the server must match the secret key configured within SMSSync, otherwise SMSSync will not execute the task.
 </li>
 <li>
