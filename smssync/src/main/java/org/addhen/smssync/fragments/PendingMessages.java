@@ -17,6 +17,18 @@
 
 package org.addhen.smssync.fragments;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Bundle;
+import android.telephony.SmsManager;
+import android.view.View;
+import android.widget.ListView;
+
 import com.actionbarsherlock.view.MenuItem;
 import com.squareup.otto.Subscribe;
 
@@ -38,18 +50,6 @@ import org.addhen.smssync.tasks.state.SyncState;
 import org.addhen.smssync.util.ServicesConstants;
 import org.addhen.smssync.util.Util;
 import org.addhen.smssync.views.PendingMessagesView;
-
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.DialogInterface;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.Bundle;
-import android.telephony.SmsManager;
-import android.view.View;
-import android.widget.ListView;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -403,7 +403,6 @@ public class PendingMessages
     /**
      * Get messages from the database.
      *
-     * @return void
      */
     public void showMessages() {
         new LoadingTask(getActivity()).execute((String) null);
@@ -459,7 +458,7 @@ public class PendingMessages
             text = getActivity().getResources().getQuantityString(
                     R.plurals.sync_done_details, itemToSync,
                     itemToSync);
-            log("Finished: successfull: " + state.currentSyncedItems + " failed: "
+            log("Finished: successful: " + state.currentSyncedItems + " failed: "
                     + state.currentFailedItems + " progress: " + state.currentProgress);
             text += getActivity().getResources().getString(R.string.sync_status_done,
                     state.currentSyncedItems,
@@ -530,6 +529,9 @@ public class PendingMessages
 
         @Override
         protected Boolean doInBackground(String... args) {
+            //
+            //TODO: Smart import, i.e Make sure does not import messages already in list
+            // (someone wants to import same messages multiple time?)
 
             status = new ProcessSms(appContext).importMessages();
             //TODO:: refactor the status code to a boolean value

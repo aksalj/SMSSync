@@ -17,12 +17,12 @@
 
 package org.addhen.smssync.views;
 
-import org.addhen.smssync.R;
-
 import android.app.Activity;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
+import org.addhen.smssync.R;
 
 public class PendingMessagesView extends View {
 
