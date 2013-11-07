@@ -1,22 +1,19 @@
-/*****************************************************************************
- ** Copyright (c) 2010 - 2012 Ushahidi Inc
- ** All rights reserved
- ** Contact: team@ushahidi.com
- ** Website: http://www.ushahidi.com
- **
- ** GNU Lesser General Public License Usage
- ** This file may be used under the terms of the GNU Lesser
- ** General Public License version 3 as published by the Free Software
- ** Foundation and appearing in the file LICENSE.LGPL included in the
- ** packaging of this file. Please review the following information to
- ** ensure the GNU Lesser General Public License version 3 requirements
- ** will be met: http://www.gnu.org/licenses/lgpl.html.
- **
- **
- ** If you have questions regarding the use of this file, please contact
- ** Ushahidi developers at team@ushahidi.com.
- **
- *****************************************************************************/
+/*******************************************************************************
+ *  Copyright (c) 2010 - 2013 Ushahidi Inc
+ *  All rights reserved
+ *  Contact: team@ushahidi.com
+ *  Website: http://www.ushahidi.com
+ *  GNU Lesser General Public License Usage
+ *  This file may be used under the terms of the GNU Lesser
+ *  General Public License version 3 as published by the Free Software
+ *  Foundation and appearing in the file LICENSE.LGPL included in the
+ *  packaging of this file. Please review the following information to
+ *  ensure the GNU Lesser General Public License version 3 requirements
+ *  will be met: http://www.gnu.org/licenses/lgpl.html.
+ *
+ * If you have questions regarding the use of this file, please contact
+ * Ushahidi developers at team@ushahidi.com.
+ ******************************************************************************/
 
 package org.addhen.smssync.util;
 
@@ -38,10 +35,10 @@ import android.content.Intent;
  */
 public class RunServicesUtil {
 
-    public static final int FLAGS = PendingIntent.FLAG_UPDATE_CURRENT;
-
     public static final String CLASS_TAG = RunServicesUtil.class
             .getSimpleName();
+
+    private ScheduleServices mScheduleServices;
 
     /**
      * Runs any enabled services. Making sure the device has internet connection before it attempts
@@ -49,13 +46,12 @@ public class RunServicesUtil {
      *
      * @param context     The calling context.
      * @param intent      The intent to be started.
-     * @param cls         The scheduler's receiver.
      * @param requestCode The private request code
      * @param interval    The interval in which to run the scheduled service.
      * @return void
      */
     public static void runServices(Context context, Intent intent,
-            Class<?> cls, int requestCode, long interval) {
+            int requestCode, long interval) {
         // load current settings
         Prefs.loadPreferences(context);
 
@@ -70,8 +66,7 @@ public class RunServicesUtil {
 
             // do we have data network?
             if (isConnected) {
-                new ScheduleServices(context, intent, cls, requestCode, FLAGS)
-                        .updateScheduler(interval);
+                Scheduler.INSTANCE.getScheduler(context, intent, requestCode).updateScheduler(interval);
             }
         }
 
@@ -82,16 +77,12 @@ public class RunServicesUtil {
      *
      * @param context     The calling context.
      * @param intent      The intent to be started.
-     * @param cls         The scheduler's receiver.
      * @param requestCode The private request code
-     * @param interval    The interval in which to run the scheduled service.
      * @return void
      */
-    public static void stopServices(Context context, Intent intent,
-            Class<?> cls, int requestCode) {
+    public static void stopServices(Context context, Intent intent, int requestCode) {
         Logger.log(CLASS_TAG, "Stopping services");
-        new ScheduleServices(context, intent, cls, requestCode, FLAGS)
-                .stopScheduler();
+        Scheduler.INSTANCE.getScheduler(context, intent, requestCode).stopScheduler();
     }
 
     /**
@@ -109,13 +100,11 @@ public class RunServicesUtil {
         Prefs.loadPreferences(context);
         if (Prefs.enableTaskCheck && Prefs.enabled) {
 
-            SmsSyncServices.sendWakefulTask(context, CheckTaskService.class);
-
             // start the scheduler for 'task check' service
             final long interval = (Prefs.taskCheckTime * 60000);
 
             final Intent intent = new Intent(context,
-                    CheckTaskScheduledService.class);
+                    CheckTaskScheduledReceiver.class);
 
             Logger.log(CLASS_TAG, "Check task service started");
             // run the service
@@ -123,7 +112,7 @@ public class RunServicesUtil {
                     .runServices(
                             context,
                             intent,
-                            CheckTaskScheduledReceiver.class,
+
                             ServicesConstants.CHECK_TASK_SCHEDULED_SERVICE_REQUEST_CODE,
                             interval);
 
@@ -141,16 +130,13 @@ public class RunServicesUtil {
     public static void runAutoSyncService(Context context) {
         // Push any pending messages now that we have connectivity
         Prefs.loadPreferences(context);
-        if (Prefs.enableAutoSync) {
-
+        if (Prefs.enableAutoSync && Prefs.enabled) {
             // start the scheduler for auto sync service
             final long interval = (Prefs.autoTime * 60000);
-            final Intent intent = new Intent(context,
-                    AutoSyncScheduledService.class);
+            final Intent intent = new Intent(context, AutoSyncScheduledReceiver.class);
             Logger.log(CLASS_TAG, "Auto sync service started");
             // run the service
             RunServicesUtil.runServices(context, intent,
-                    AutoSyncScheduledReceiver.class,
                     ServicesConstants.AUTO_SYNC_SCHEDULED_SERVICE_REQUEST_CODE,
                     interval);
 
@@ -168,11 +154,10 @@ public class RunServicesUtil {
         // Push any pending messages now that we have connectivity
         Prefs.loadPreferences(context);
         final Intent intent = new Intent(context,
-                AutoSyncScheduledService.class);
+                CheckTaskScheduledReceiver.class);
 
         // stop the scheduled service
         RunServicesUtil.stopServices(context, intent,
-                CheckTaskScheduledReceiver.class,
                 ServicesConstants.CHECK_TASK_SCHEDULED_SERVICE_REQUEST_CODE);
 
     }
@@ -185,15 +170,21 @@ public class RunServicesUtil {
      * @return void
      */
     public static void stopAutoSyncService(Context context) {
-        // Push any pending messages now that we have connectivity
         Prefs.loadPreferences(context);
         final Intent intent = new Intent(context,
-                AutoSyncScheduledService.class);
+                AutoSyncScheduledReceiver.class);
 
         // stop the scheduled service
         RunServicesUtil.stopServices(context, intent,
-                AutoSyncScheduledService.class,
                 ServicesConstants.AUTO_SYNC_SCHEDULED_SERVICE_REQUEST_CODE);
 
+    }
+
+    public enum Scheduler {
+        INSTANCE;
+
+        private ScheduleServices getScheduler(Context context, Intent intent, int requestCode) {
+            return new ScheduleServices(context, intent, requestCode,PendingIntent.FLAG_UPDATE_CURRENT);
+        }
     }
 }

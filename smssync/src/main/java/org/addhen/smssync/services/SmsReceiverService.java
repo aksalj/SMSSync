@@ -1,30 +1,30 @@
-/*****************************************************************************
- ** Copyright (c) 2010 - 2012 Ushahidi Inc
- ** All rights reserved
- ** Contact: team@ushahidi.com
- ** Website: http://www.ushahidi.com
- **
- ** GNU Lesser General Public License Usage
- ** This file may be used under the terms of the GNU Lesser
- ** General Public License version 3 as published by the Free Software
- ** Foundation and appearing in the file LICENSE.LGPL included in the
- ** packaging of this file. Please review the following information to
- ** ensure the GNU Lesser General Public License version 3 requirements
- ** will be met: http://www.gnu.org/licenses/lgpl.html.
- **
- **
- ** If you have questions regarding the use of this file, please contact
- ** Ushahidi developers at team@ushahidi.com.
- **
- *****************************************************************************/
+/*******************************************************************************
+ *  Copyright (c) 2010 - 2013 Ushahidi Inc
+ *  All rights reserved
+ *  Contact: team@ushahidi.com
+ *  Website: http://www.ushahidi.com
+ *  GNU Lesser General Public License Usage
+ *  This file may be used under the terms of the GNU Lesser
+ *  General Public License version 3 as published by the Free Software
+ *  Foundation and appearing in the file LICENSE.LGPL included in the
+ *  packaging of this file. Please review the following information to
+ *  ensure the GNU Lesser General Public License version 3 requirements
+ *  will be met: http://www.gnu.org/licenses/lgpl.html.
+ *
+ * If you have questions regarding the use of this file, please contact
+ * Ushahidi developers at team@ushahidi.com.
+ ******************************************************************************/
 
 package org.addhen.smssync.services;
 
+import com.squareup.otto.Produce;
+
+import org.addhen.smssync.MainApplication;
 import org.addhen.smssync.Prefs;
 import org.addhen.smssync.R;
-import org.addhen.smssync.fragments.PendingMessages;
 import org.addhen.smssync.messages.ProcessMessage;
 import org.addhen.smssync.messages.ProcessSms;
+import org.addhen.smssync.util.LogUtil;
 import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.ServicesConstants;
 import org.addhen.smssync.util.Util;
@@ -42,6 +42,7 @@ import android.os.Message;
 import android.os.PowerManager;
 import android.os.Process;
 import android.telephony.SmsMessage;
+import android.text.format.DateFormat;
 
 import java.lang.ref.WeakReference;
 
@@ -55,11 +56,7 @@ public class SmsReceiverService extends Service {
 
     private Context mContext;
 
-    private String messagesFrom = "";
-
     private String messagesBody = "";
-
-    private String messagesTimestamp = "";
 
     private String messagesUuid = "";
 
@@ -103,6 +100,7 @@ public class SmsReceiverService extends Service {
         statusIntent = new Intent(ServicesConstants.AUTO_SYNC_ACTION);
         mServiceLooper = thread.getLooper();
         mServiceHandler = new ServiceHandler(this, mServiceLooper);
+        MainApplication.bus.register(this);
 
     }
 
@@ -112,11 +110,14 @@ public class SmsReceiverService extends Service {
         msg.arg1 = startId;
         msg.obj = intent;
         mServiceHandler.sendMessage(msg);
+
     }
 
     @Override
     public void onDestroy() {
         mServiceLooper.quit();
+        MainApplication.bus.unregister(this);
+        super.onDestroy();
     }
 
     @Override
@@ -190,18 +191,23 @@ public class SmsReceiverService extends Service {
         }
 
         log("handleSmsReceived() messagesUuid: " + messagesUuid);
+        // Log received SMS
+
+        Util.logActivities(this, getString(R.string.received_msg, msg.getBody(), msg.getFrom()));
 
         // route the sms
         boolean sent = mProcessMessage.routeSms(msg);
         if (!sent) {
             Util.showFailNotification(this, messagesBody,
                     getString(R.string.sending_failed));
+
             statusIntent = new Intent(ServicesConstants.FAILED_ACTION);
             statusIntent.putExtra("failed", 0);
             sendBroadcast(statusIntent);
         } else {
             Util.showFailNotification(this, messagesBody,
                     getString(R.string.sending_succeeded));
+            Util.logActivities(this,getString(R.string.sending_succeeded));
             statusIntent.putExtra("sentstatus", 0);
             sendBroadcast(statusIntent);
         }
@@ -305,4 +311,8 @@ public class SmsReceiverService extends Service {
         Logger.log(getClass().getName(), message, ex);
     }
 
+    @Produce
+    public boolean readLogs() {
+        return true;
+    }
 }

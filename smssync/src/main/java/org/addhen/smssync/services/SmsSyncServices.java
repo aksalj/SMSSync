@@ -1,27 +1,28 @@
-/*****************************************************************************
- ** Copyright (c) 2010 - 2012 Ushahidi Inc
- ** All rights reserved
- ** Contact: team@ushahidi.com
- ** Website: http://www.ushahidi.com
- **
- ** GNU Lesser General Public License Usage
- ** This file may be used under the terms of the GNU Lesser
- ** General Public License version 3 as published by the Free Software
- ** Foundation and appearing in the file LICENSE.LGPL included in the
- ** packaging of this file. Please review the following information to
- ** ensure the GNU Lesser General Public License version 3 requirements
- ** will be met: http://www.gnu.org/licenses/lgpl.html.
- **
- **
- ** If you have questions regarding the use of this file, please contact
- ** Ushahidi developers at team@ushahidi.com.
- **
- *****************************************************************************/
+/*******************************************************************************
+ *  Copyright (c) 2010 - 2013 Ushahidi Inc
+ *  All rights reserved
+ *  Contact: team@ushahidi.com
+ *  Website: http://www.ushahidi.com
+ *  GNU Lesser General Public License Usage
+ *  This file may be used under the terms of the GNU Lesser
+ *  General Public License version 3 as published by the Free Software
+ *  Foundation and appearing in the file LICENSE.LGPL included in the
+ *  packaging of this file. Please review the following information to
+ *  ensure the GNU Lesser General Public License version 3 requirements
+ *  will be met: http://www.gnu.org/licenses/lgpl.html.
+ *
+ * If you have questions regarding the use of this file, please contact
+ * Ushahidi developers at team@ushahidi.com.
+ ******************************************************************************/
 
 package org.addhen.smssync.services;
 
+import com.squareup.otto.Produce;
+
+import org.addhen.smssync.MainApplication;
 import org.addhen.smssync.Prefs;
 import org.addhen.smssync.receivers.ConnectivityChangedReceiver;
+import org.addhen.smssync.util.LogUtil;
 import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.Util;
 
@@ -33,6 +34,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.wifi.WifiManager;
 import android.os.PowerManager;
+import android.text.format.DateFormat;
 
 public abstract class SmsSyncServices extends IntentService {
 
@@ -101,7 +103,9 @@ public abstract class SmsSyncServices extends IntentService {
         super.onCreate();
         // load setting. Just in case someone changes a setting
         Prefs.loadPreferences(this);
+        MainApplication.bus.register(this);
     }
+
 
     /**
      * {@inheritDoc} Perform a task as implemented by the executeTask()
@@ -157,6 +161,7 @@ public abstract class SmsSyncServices extends IntentService {
                 && getPhoneWakeLock(this.getApplicationContext()) != null) {
             getPhoneWakeLock(this.getApplicationContext()).release();
         }
+        MainApplication.bus.unregister(this);
     }
 
     protected void log(String message) {
