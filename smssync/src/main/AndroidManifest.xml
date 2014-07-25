@@ -12,8 +12,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.addhen.smssync"
-    android:versionCode="20"
-    android:versionName="2.5.1" >
+    android:versionCode="21"
+    android:versionName="2.6" >
 
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
@@ -28,10 +28,8 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="com.android.vending.BILLING" />
 
-    <uses-sdk
-        android:minSdkVersion="8"
+    <uses-sdk android:minSdkVersion="8"
         android:targetSdkVersion="19" />
-
     <application
         android:name="org.addhen.smssync.MainApplication"
         android:icon="@drawable/icon"
@@ -83,6 +81,20 @@
             android:label="@string/filter" />
 
         <!-- sms -->
+        <!-- Receiver for sms sent code -->
+        <receiver android:name=".receivers.SmsSentReceiver" >
+            <intent-filter>
+                <action android:name="SMS_SENT" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Receiver for sms delivered code -->
+        <receiver android:name="org.addhen.smssync.receivers.SmsDeliveredReceiver" >
+            <intent-filter>
+                <action android:name="SMS_DELIVERED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Receiver for pre kitkat. This is disabled when it's kitkat and above -->
         <receiver android:name="org.addhen.smssync.receivers.SmsReceiver" android:enabled="@bool/is_pre_kitkat" >
             <intent-filter>

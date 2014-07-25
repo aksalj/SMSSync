@@ -1,7 +1,9 @@
 package org.addhen.smssync.messages;
 
+import org.addhen.smssync.MainApplication;
 import org.addhen.smssync.Prefs;
 import org.addhen.smssync.R;
+import org.addhen.smssync.database.Database;
 import org.addhen.smssync.models.Filter;
 import org.addhen.smssync.models.Message;
 import org.addhen.smssync.models.SyncUrl;
@@ -14,12 +16,16 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import android.content.Context;
+import android.provider.Settings;
 import android.text.TextUtils;
 
 import java.net.URLEncoder;
 import java.util.List;
 
 import static org.addhen.smssync.messages.ProcessSms.PENDING;
+import static org.addhen.smssync.messages.ProcessSms.TASK;
+import static org.addhen.smssync.messages.ProcessSms.UNCONFIRMED;
+import static org.addhen.smssync.messages.ProcessSms.FAILED;
 
 /**
  * Process messages
@@ -65,9 +71,10 @@ public class ProcessMessage {
     public boolean syncReceivedSms(Message message, SyncUrl syncUrl) {
         Logger.log(TAG, "syncReceivedSms(): Post received SMS to configured URL:" +
                 message.toString() + " SyncUrlFragment: " + syncUrl.toString());
+        Prefs.loadPreferences(context);
 
         MessageSyncHttpClient client = new MessageSyncHttpClient(
-                context, syncUrl, message, Util.getPhoneNumber(context)
+                context, syncUrl, message, Util.getPhoneNumber(context), Prefs.uniqueId
         );
         final boolean posted = client.postSmsToWebService();
 
@@ -218,6 +225,7 @@ public class ProcessMessage {
 
                     if (payloadObject != null) {
                         String task = payloadObject.getString("task");
+                        Logger.log(TAG, "Task "+task);
                         boolean secretOk = TextUtils.isEmpty(urlSecret) ||
                                 urlSecret.equals(payloadObject.getString("secret"));
                         if (secretOk && task.equals("send")) {
@@ -227,8 +235,12 @@ public class ProcessMessage {
                             for (int index = 0; index < jsonArray.length(); ++index) {
                                 jsonObject = jsonArray.getJSONObject(index);
 
+                                // Make sure message UUID has been set before attempting to get.
+                                // This should work with pre 2.5 releases
+                                String uuid = jsonObject.has("uuid") ? jsonObject.getString("uuid") : "";
                                 processSms.sendSms(jsonObject.getString("to"),
-                                        jsonObject.getString("message"));
+                                        jsonObject.getString("message"), uuid);
+
                                 Util.logActivities(context,
                                         context.getString(R.string.processed_task,
                                                 jsonObject.getString("message")));
@@ -257,7 +269,7 @@ public class ProcessMessage {
     }
 
     /**
-     * Processes the incoming SMS to figure out how to exactly to route the message. If it fails to
+     * Processes the incoming SMS to figure out how to exactly route the message. If it fails to
      * be synced online, cache it and queue it up for the scheduler to process it.
      *
      * @param message The sms to be routed
@@ -305,7 +317,6 @@ public class ProcessMessage {
     }
 
     /**
-     *
      * @param message
      * @param syncUrl
      * @return
@@ -320,36 +331,48 @@ public class ProcessMessage {
                     || processSms.filterByRegex(message.getBody(), filterText)) {
                 Logger.log(TAG, syncUrl.getUrl());
 
-                posted = syncReceivedSms(message, syncUrl);
-                if (!posted) {
-                    // Note: HTTP Error code or custom error message
-                    // will have been shown already
 
-                    // attempt to make a data connection to sync
-                    // the failed messages.
-                    Util.connectToDataNetwork(context);
+                if (message.getMessageType() == PENDING) {
+                    posted = syncReceivedSms(message, syncUrl);
+                    if (!posted) {
+                        // Note: HTTP Error code or custom error message
+                        // will have been shown already
 
+                        // attempt to make a data connection to sync
+                        // the failed messages.
+                        Util.connectToDataNetwork(context);
+
+                    } else {
+                        processSms.postToSentBox(message, PENDING);
+                    }
                 } else {
-
-                    processSms.postToSentBox(message, PENDING);
+                    processSms.sendSms(message.getFrom(), message.getBody(), message.getUuid());
+                    posted = true;
                 }
 
             }
 
         } else { // there is no filter text set up on a sync URL
-            posted = syncReceivedSms(message, syncUrl);
-            setErrorMessage(syncUrl.getUrl());
-            if (!posted) {
 
-                // attempt to make a data connection to the sync
-                // url
-                Util.connectToDataNetwork(context);
+            if (message.getMessageType() == PENDING) {
+                posted = syncReceivedSms(message, syncUrl);
+                setErrorMessage(syncUrl.getUrl());
+                if (!posted) {
 
+                    // attempt to make a data connection to the sync
+                    // url
+                    Util.connectToDataNetwork(context);
+
+                } else {
+                    processSms.postToSentBox(message, PENDING);
+                }
             } else {
+                processSms.sendSms(message.getFrom(), message.getBody(), message.getUuid());
+                posted = true;
 
-                processSms.postToSentBox(message, PENDING);
             }
         }
+
         return posted;
     }
 

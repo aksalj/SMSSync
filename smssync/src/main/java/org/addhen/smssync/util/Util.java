@@ -460,7 +460,7 @@ public class Util {
         if (number != null) {
             return number;
         }
-        return "";
+        return Prefs.uniqueId;
 
     }
 
@@ -549,5 +549,16 @@ public class Util {
             status = true;
             MainApplication.bus.post(true);
         }
+    }
+
+    /**
+     * This method removes all whitespaces from passed string
+     *
+     * @param s String to be trimmed
+     * @return String without whitespaces
+     */
+    public static String removeWhitespaces(String s) {
+        String withoutWhiteChars = s.replaceAll("\\s+", "");
+        return withoutWhiteChars;
     }
 }
