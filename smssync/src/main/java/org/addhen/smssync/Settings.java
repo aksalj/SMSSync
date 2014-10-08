@@ -18,6 +18,7 @@
 package org.addhen.smssync;
 
 
+import org.addhen.smssync.services.SmsPortal;
 import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.RunServicesUtil;
 import org.addhen.smssync.util.TimePreference;
@@ -30,12 +31,15 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Messenger;
 import android.preference.CheckBoxPreference;
 import android.preference.EditTextPreference;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceActivity;
 import android.text.TextUtils;
+
+import java.util.ArrayList;
 
 /**
  * This class handles all related task for settings on SMSSync. TODO // move the UI code into it's
@@ -60,15 +64,23 @@ public class Settings extends PreferenceActivity implements
 
     public static final String KEY_UNIQUE_ID = "unique_id_preference";
 
+    public static final String KEY_ALERT_PHONE_NUMBER = "alert_phone_number_preference";
+
     public static final String AUTO_SYNC = "auto_sync_preference";
 
     public static final String AUTO_SYNC_TIMES = "auto_sync_times";
+
+    public static final String KEY_ENABLE_SMS_PORTALS = "enable_sms_portals";
 
     public static final String TASK_CHECK = "task_check_preference";
 
     public static final String TASK_CHECK_TIMES = "task_check_times";
 
     public static final String ABOUT = "powered_preference";
+
+    public static ArrayList<Messenger> availableConnections = new ArrayList<Messenger>();
+
+    public static int currentConnectionIndex = -1;
 
     private EditTextPreference replyPref;
 
@@ -80,6 +92,8 @@ public class Settings extends PreferenceActivity implements
 
     private CheckBoxPreference autoSync;
 
+    private CheckBoxPreference useSmsPortals;
+
     private CheckBoxPreference taskCheck;
 
     private TimePreference autoSyncTimes;
@@ -87,6 +101,8 @@ public class Settings extends PreferenceActivity implements
     private TimePreference taskCheckTimes;
 
     private EditTextPreference uniqueId;
+
+    private EditTextPreference alertPhoneNumber;
 
     private Preference about;
 
@@ -143,12 +159,15 @@ public class Settings extends PreferenceActivity implements
         uniqueId = (EditTextPreference) getPreferenceScreen().findPreference(
                 KEY_UNIQUE_ID);
 
+        alertPhoneNumber = (EditTextPreference) getPreferenceScreen().findPreference(
+                KEY_ALERT_PHONE_NUMBER);
+
         autoSyncTimes = (TimePreference) getPreferenceScreen().findPreference(
                 AUTO_SYNC_TIMES);
 
+        taskCheckTimes = (TimePreference) getPreferenceScreen().findPreference(TASK_CHECK_TIMES);
 
-        taskCheckTimes = (TimePreference) getPreferenceScreen().findPreference(
-                TASK_CHECK_TIMES);
+        useSmsPortals = (CheckBoxPreference) getPreferenceScreen().findPreference(KEY_ENABLE_SMS_PORTALS);
 
         about = (Preference) getPreferenceScreen().findPreference(ABOUT);
 
@@ -292,6 +311,18 @@ public class Settings extends PreferenceActivity implements
                     Prefs.autoTime, autoSyncTimes.getTimeValueAsString()));
         }
 
+        editor.putBoolean("UseSmsPortals", useSmsPortals.isChecked());
+        if (Prefs.useSmsPortals != useSmsPortals.isChecked()) {
+            boolean checked = useSmsPortals.isChecked() ? true : false;
+            String check = getCheckedStatus(checked);
+
+            String status = getCheckedStatus(Prefs.useSmsPortals);
+
+            Util.logActivities(Settings.this, getString(R.string.settings_changed,
+                    useSmsPortals.getTitle().toString(), status,
+                    check));
+        }
+
         editor.putString("taskCheck", taskCheckTimes.getTimeValueAsString());
         if (!Prefs.taskCheckTime.equals(taskCheckTimes.getSummary().toString())) {
             Util.logActivities(this, getString(R.string.settings_changed,
@@ -299,13 +330,42 @@ public class Settings extends PreferenceActivity implements
                     Prefs.taskCheckTime, taskCheckTimes.getTimeValueAsString()));
         }
 
-        if (!TextUtils.isEmpty(uniqueId.getText())) {
-            String id = Util.removeWhitespaces(uniqueId.getText().toString());
+
+        if(!TextUtils.isEmpty(uniqueId.getText())) {
+            String id = Util.removeWhitespaces(uniqueId.getText());
             editor.putString("UniqueId", id);
-            if(!Prefs.uniqueId.equals(uniqueId.getText().toString())) {
+            if (!Prefs.uniqueId.equals(uniqueId.getText())) {
                 Util.logActivities(this,
-                        getString(R.string.settings_changed, uniqueId.getTitle().toString(),
-                                Prefs.uniqueId, id));
+                        getString(R.string.settings_changed, uniqueId.getTitle(),
+                                Prefs.uniqueId, id)
+                );
+            }
+        } else {
+            editor.putString("UniqueId", "");
+            if (!Prefs.uniqueId.equals("")) {
+                Util.logActivities(this,
+                        getString(R.string.settings_changed, uniqueId.getTitle(),
+                                Prefs.uniqueId, "")
+                );
+            }
+        }
+
+        if(!TextUtils.isEmpty(alertPhoneNumber.getText())) {
+            String number = Util.removeWhitespaces(alertPhoneNumber.getText());
+            editor.putString("AlertPhoneNumber", number);
+            if (!Prefs.alertPhoneNumber.equals(alertPhoneNumber.getText())) {
+                Util.logActivities(this,
+                        getString(R.string.settings_changed, alertPhoneNumber.getTitle().toString(),
+                                Prefs.alertPhoneNumber, number)
+                );
+            }
+        } else {
+            editor.putString("AlertPhoneNumber", "");
+            if (!Prefs.alertPhoneNumber.equals("")) {
+                Util.logActivities(this,
+                        getString(R.string.settings_changed, alertPhoneNumber.getTitle().toString(),
+                                Prefs.alertPhoneNumber, "")
+                );
             }
         }
 
@@ -381,6 +441,17 @@ public class Settings extends PreferenceActivity implements
             }
         }
 
+        if(key.equals(KEY_ENABLE_SMS_PORTALS)) {
+            SmsPortal smsPortal = new SmsPortal(getApplicationContext());
+            if(sharedPreferences.getBoolean(KEY_ENABLE_SMS_PORTALS, false)) {
+                smsPortal.setNumber();
+                smsPortal.bindToSmsPortals();
+                availableConnections = smsPortal.getMessengers();
+            } else {
+                smsPortal.unbindFromSmsPortals();
+                availableConnections.clear();
+            }
+        }
         // Enable task checking
         if (key.equals(TASK_CHECK)) {
 
