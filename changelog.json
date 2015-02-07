@@ -1,5 +1,36 @@
 [
     {
+        "version": "v2.7.2",
+        "date": "December 02, 2014",
+        "features": [
+            "Added secret to result API",
+            "Updated failed notification icon.",
+            "Change message result API to use the same time frequency as task checking feautre. "
+
+        ],
+        "bugs": [
+            "Fixed wrong use of result API GET param.",
+            "Fixed potential null pointers exceptions.",
+            "Updated website documentation to match result API's request param."
+        ]
+    },
+    {
+        "version": "v2.7.1",
+        "date": "November 11, 2014",
+        "features": [
+            "Updated website with demo code showing how to integrate the message result API",
+            "Updated failed notification icon.",
+            "Changed Message Results API query string from task=results to task=result",
+            "Changed Message Results API JSON property from message_uuid to uuid"
+        ],
+        "bugs": [
+            "Fixed a bug with message result API.",
+            "Fixed issue with feedback dialog not sending email addresses.",
+            "Updated website documentation to match required JSON structure.",
+            "Fixed feedback dialog so it only validate for the email address field when user hit the positive button."
+        ]
+    },
+    {
         "version": "v2.7",
         "date": "October 27, 2014",
         "features": [

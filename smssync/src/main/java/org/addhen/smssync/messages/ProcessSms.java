@@ -17,14 +17,14 @@
 
 package org.addhen.smssync.messages;
 
-import org.addhen.smssync.Prefs;
 import org.addhen.smssync.R;
 import org.addhen.smssync.models.Message;
+import org.addhen.smssync.prefs.Prefs;
+import org.addhen.smssync.util.LogUtil;
 import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.SentMessagesUtil;
 import org.addhen.smssync.util.ServicesConstants;
 import org.addhen.smssync.util.Util;
-import org.addhen.smssync.util.LogUtil;
 
 import android.app.PendingIntent;
 import android.content.ContentUris;
@@ -85,11 +85,14 @@ public class ProcessSms {
 
     public static HashMap<String, String> smsMap;
 
+    Prefs prefs;
+
     private Context context;
 
     public ProcessSms(Context context) {
         this.context = context;
-        smsMap = new HashMap<String, String>();
+        smsMap = new HashMap<>();
+        prefs = new Prefs(context);
     }
 
     /**
@@ -209,7 +212,6 @@ public class ProcessSms {
     public int importMessages() {
         Logger.log(CLASS_TAG,
                 "importMessages(): import messages from messages app");
-        Prefs.loadPreferences(context);
         if (Util.isKitKat()) {
             return importMessageKitKat();
         }
@@ -233,9 +235,9 @@ public class ProcessSms {
                             .getColumnIndex("date")));
                     message.setTimestamp(messageDate);
 
-                    message.setFrom(c.getString(c
+                    message.setPhoneNumber(c.getString(c
                             .getColumnIndex("address")));
-                    message.setBody(c.getString(c.getColumnIndex("body")));
+                    message.setMessage(c.getString(c.getColumnIndex("body")));
                     message.setUuid(getUuid());
                     message.save();
                 } while (c.moveToNext());
@@ -252,7 +254,6 @@ public class ProcessSms {
     public int importMessageKitKat() {
         Logger.log(CLASS_TAG,
                 "importMessages(): import messages from messages app");
-        Prefs.loadPreferences(context);
         Uri uriSms = SmsQuery.INBOX_CONTENT_URI;
         uriSms = uriSms.buildUpon().appendQueryParameter("LIMIT", "10").build();
 
@@ -271,9 +272,9 @@ public class ProcessSms {
                             .getColumnIndex(Inbox.DATE)));
                     message.setTimestamp(messageDate);
 
-                    message.setFrom(c.getString(c
+                    message.setPhoneNumber(c.getString(c
                             .getColumnIndex(Inbox.ADDRESS)));
-                    message.setBody(c.getString(c.getColumnIndex(Inbox.BODY)));
+                    message.setMessage(c.getString(c.getColumnIndex(Inbox.BODY)));
                     message.setUuid(getUuid());
                     message.save();
                 } while (c.moveToNext());
@@ -377,9 +378,9 @@ public class ProcessSms {
 
         final Long timeMills = System.currentTimeMillis();
         Message message = new Message();
-        message.setBody(msg);
+        message.setMessage(msg);
         message.setTimestamp(timeMills.toString());
-        message.setFrom(sendTo);
+        message.setPhoneNumber(sendTo);
         message.setUuid(validUUID);
 
         for (int i = 0; i < parts.size(); i++) {
@@ -403,21 +404,21 @@ public class ProcessSms {
         }
 
         if (PhoneNumberUtils.isGlobalPhoneNumber(sendTo)) {
-            
-            if (Prefs.smsReportDelivery) {
+
+            if (prefs.smsReportDelivery().get()) {
                 sms.sendMultipartTextMessage(sendTo, null, parts, sentIntents,
                         deliveryIntents);
             } else {
                 sms.sendMultipartTextMessage(sendTo, null, parts, sentIntents,
                         null);
             }
-
-            postToSentBox(message, UNCONFIRMED);
+            message.setMessageType(UNCONFIRMED);
+            postToSentBox(message);
         } else {
             final String errNotGlobalPhoneNumber = "sendSms(): !PhoneNumberUtils.isGlobalPhoneNumber: " + sendTo;
             Logger.log(CLASS_TAG, errNotGlobalPhoneNumber);
             // Following copy/pasted from BaseBroadcastReceiver.. should be in shared util instead
-            if (Prefs.enableLog) {
+            if (prefs.enableLog().get()) {
                 new LogUtil(DateFormat.getDateFormatOrder(context)).appendAndClose(errNotGlobalPhoneNumber);
             }
             Toast.makeText(context, errNotGlobalPhoneNumber, Toast.LENGTH_LONG).show();
@@ -451,21 +452,16 @@ public class ProcessSms {
     /**
      * Saves successfully sent messages into the db
      *
-     * @param messageType the message type
+     * @param message the message
      */
-    public boolean postToSentBox(Message message, int messageType) {
+    public boolean postToSentBox(Message message) {
         Logger.log(CLASS_TAG, "postToSentBox(): post message to sentbox");
+        return SentMessagesUtil.processSentMessages(message);
 
-        //TODO:: refactor this to use message obj directly
-        SentMessagesUtil.smsMap.put("messagesFrom", message.getFrom());
-        SentMessagesUtil.smsMap.put("messagesBody", message.getBody());
-        SentMessagesUtil.smsMap.put("messagesDate", message.getTimestamp());
-        SentMessagesUtil.smsMap.put("messagesUuid", message.getUuid());
-        SentMessagesUtil.smsMap
-                .put("messagesType", String.valueOf(messageType));
+    }
 
-        return SentMessagesUtil.processSentMessages(context);
-
+    public Context getContext() {
+        return context;
     }
 
     /**

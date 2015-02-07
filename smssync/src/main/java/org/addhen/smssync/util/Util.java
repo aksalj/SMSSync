@@ -19,7 +19,7 @@ package org.addhen.smssync.util;
 
 import org.addhen.smssync.BuildConfig;
 import org.addhen.smssync.MainApplication;
-import org.addhen.smssync.Prefs;
+import org.addhen.smssync.prefs.Prefs;
 import org.addhen.smssync.R;
 import org.addhen.smssync.activities.MainActivity;
 import org.addhen.smssync.receivers.ConnectivityChangedReceiver;
@@ -50,6 +50,8 @@ import android.widget.Toast;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.ParseException;
@@ -456,7 +458,7 @@ public class Util {
     }
 
     public static String getPhoneNumber(Context context) {
-
+        Prefs prefs = new Prefs(context);
         TelephonyManager mTelephonyMgr;
         mTelephonyMgr = (TelephonyManager)
                 context.getSystemService(Context.TELEPHONY_SERVICE);
@@ -464,7 +466,7 @@ public class Util {
         if (number != null) {
             return number;
         }
-        return Prefs.uniqueId;
+        return prefs.uniqueId().get();
 
     }
 
@@ -548,7 +550,8 @@ public class Util {
 
     public static void logActivities(Context context, String message) {
         Logger.log(CLASS_TAG, message);
-        if (Prefs.enableLog) {
+        Prefs prefs = new Prefs(context);
+        if (prefs.enableLog().get()) {
             new LogUtil(DateFormat.getDateFormatOrder(context)).appendAndClose(message);
             status = true;
             MainApplication.bus.post(true);
@@ -577,5 +580,40 @@ public class Util {
         }
 
         return -1;
+    }
+
+    /**
+     * Writes SMSsync's database file on a non rooted device to the SD card
+     */
+    public static void writeDbToSDCard() {
+        File f = new File("/data/data/org.addhen.smssync.debug/databases/smssync_db");
+        FileInputStream fis = null;
+        FileOutputStream fos = null;
+
+        try {
+            fis = new FileInputStream(f);
+            fos = new FileOutputStream("/mnt/sdcard/db_dump.db");
+            while (true) {
+                int i = fis.read();
+                if (i != -1) {
+                    fos.write(i);
+                } else {
+                    break;
+                }
+            }
+            fos.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if(fos !=null) {
+                    fos.close();
+                }
+                if(fis !=null) {
+                    fis.close();
+                }
+            } catch (IOException ioe) {
+            }
+        }
     }
 }

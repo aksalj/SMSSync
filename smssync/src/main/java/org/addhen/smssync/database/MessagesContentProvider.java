@@ -78,7 +78,7 @@ public class MessagesContentProvider extends DbContentProvider implements
     /*
      * (non-Javadoc)
      * @see
-     * org.addhen.smssync.database.IMessagesContentProvider#addMessages(java
+     * org.addhen.smssync.database.IMessagesContentProvider#addMessage(java
      * .util.List)
      */
     @Override
@@ -87,7 +87,7 @@ public class MessagesContentProvider extends DbContentProvider implements
             mDb.beginTransaction();
 
             for (Message message : messages) {
-                addMessages(message);
+                addMessage(message);
             }
             mDb.setTransactionSuccessful();
         } finally {
@@ -99,11 +99,11 @@ public class MessagesContentProvider extends DbContentProvider implements
     /*
      * (non-Javadoc)
      * @see
-     * org.addhen.smssync.database.IMessagesContentProvider#addMessages(org.
+     * org.addhen.smssync.database.IMessagesContentProvider#addMessage(org.
      * addhen.smssync.models.MessageModel)
      */
     @Override
-    public boolean addMessages(Message messages) {
+    public boolean addMessage(Message messages) {
 
         setContentValue(messages);
         String selectionClause = MESSAGE_UUID + " =?";
@@ -124,10 +124,8 @@ public class MessagesContentProvider extends DbContentProvider implements
      */
     @Override
     public boolean deleteMessagesByUuid(String messageUuid) {
-        String whereClause = MESSAGE_UUID + "= ?";
-        String whereArgs[] = {
-                messageUuid
-        };
+        final String whereClause = MESSAGE_UUID + "= ?";
+        final String whereArgs[] = { messageUuid };
         return super.delete(TABLE, whereClause, whereArgs) > 0;
     }
 
@@ -141,30 +139,37 @@ public class MessagesContentProvider extends DbContentProvider implements
 
     @Override
     public List<MessageResult> fetchMessageResultsByUuid(List<String> messageUuid) {
-        List<MessageResult> messageResults = new ArrayList<MessageResult>();
-        String selection = MESSAGE_UUID + "= ?";
+        List<MessageResult> messageResults = new ArrayList<>();
+        String selection = Database.SENT_MESSAGES_UUID + "= ?";
         if (null != messageUuid) {
             for (String uuid : messageUuid) {
+                log("uuids_message " + uuid);
                 String selectionArgs[] = { uuid };
-                cursor = super.query(TABLE, COLUMNS, selection, selectionArgs, DATE
+                cursor = super.query(Database.SENT_MESSAGES_TABLE, Database.SENT_MESSAGES_COLUMNS, selection, selectionArgs, Database.SENT_MESSAGES_DATE
                         + " DESC");
 
                 if (cursor != null) {
                     try {
                         while (cursor.moveToNext()) {
-                            int sentResultCodeIndex = cursor.getColumnIndexOrThrow(SENT_RESULT_CODE);
-                            int sentResultMessageIndex = cursor.getColumnIndexOrThrow(SENT_RESULT_MESSAGE);
-                            int deliveryResultCodeIndex = cursor.getColumnIndexOrThrow(DELIVERY_RESULT_CODE);
-                            int deliveryResultMessageIndex = cursor.getColumnIndexOrThrow(DELIVERY_RESULT_MESSAGE);
+                            int sentResultCodeIndex = cursor.getColumnIndexOrThrow(Database.SENT_RESULT_CODE);
+                            int sentResultMessageIndex = cursor.getColumnIndexOrThrow(Database.SENT_RESULT_MESSAGE);
+                            int deliveryResultCodeIndex = cursor.getColumnIndexOrThrow(Database.DELIVERY_RESULT_CODE);
+                            int deliveryResultMessageIndex = cursor.getColumnIndexOrThrow(Database.DELIVERY_RESULT_MESSAGE);
 
                             int sentResultCode = cursor.getInt(sentResultCodeIndex);
                             String sentResultMessage = cursor.getString(sentResultMessageIndex);
                             int deliveryResultCode = cursor.getInt(deliveryResultCodeIndex);
                             String deliveryResultMessage = cursor.getString(deliveryResultMessageIndex);
+                            log("uuids_message messages " + " sentResultCode " + sentResultCode
+                                    + " sentResultMessage " + sentResultMessage
+                                    + " deliveryResultCode: " + deliveryResultCode
+                                    + "deliveryResultCode " + deliveryResultMessage);
                             messageResults.add(new MessageResult(uuid, sentResultCode, sentResultMessage, deliveryResultCode, deliveryResultMessage));
                         }
                     } finally {
-                        cursor.close();
+                        if (cursor != null) {
+                            cursor.close();
+                        }
                     }
                 }
             }
@@ -181,7 +186,7 @@ public class MessagesContentProvider extends DbContentProvider implements
      */
     @Override
     public List<Message> fetchMessagesByUuid(String messageUuid) {
-        listMessages = new ArrayList<Message>();
+        listMessages = new ArrayList<>();
         String selection = MESSAGE_UUID + "= ?";
         String selectionArgs[] = {
                 messageUuid
@@ -197,7 +202,9 @@ public class MessagesContentProvider extends DbContentProvider implements
 
                 }
             } finally {
-                cursor.close();
+                if (cursor != null) {
+                    cursor.close();
+                }
             }
 
         }
@@ -212,18 +219,20 @@ public class MessagesContentProvider extends DbContentProvider implements
      */
     @Override
     public List<Message> fetchAllMessages() {
-        listMessages = new ArrayList<Message>();
+        listMessages = new ArrayList<>();
         cursor = super.query(TABLE, COLUMNS, null, null, DATE + " DESC");
 
         if (cursor != null) {
             try {
                 while (cursor.moveToNext()) {
-                    Message message = cursorToEntity(cursor);
+                    final Message message = cursorToEntity(cursor);
                     listMessages.add(message);
 
                 }
             } finally {
-                cursor.close();
+                if (cursor != null) {
+                    cursor.close();
+                }
             }
 
         }
@@ -239,7 +248,7 @@ public class MessagesContentProvider extends DbContentProvider implements
      */
     @Override
     public List<Message> fetchMessagesByLimit(int limit) {
-        listMessages = new ArrayList<Message>();
+        listMessages = new ArrayList<>();
         cursor = super.query(TABLE, COLUMNS, null, null, MESSAGE_UUID + " DESC",
                 String.valueOf(limit));
         if (cursor != null) {
@@ -250,7 +259,9 @@ public class MessagesContentProvider extends DbContentProvider implements
 
                 }
             } finally {
-                cursor.close();
+                if (cursor != null) {
+                    cursor.close();
+                }
             }
 
         }
@@ -265,8 +276,8 @@ public class MessagesContentProvider extends DbContentProvider implements
      */
     private void setContentValue(Message messages) {
         initialValues = new ContentValues();
-        initialValues.put(FROM, messages.getFrom());
-        initialValues.put(BODY, messages.getBody());
+        initialValues.put(FROM, messages.getPhoneNumber());
+        initialValues.put(BODY, messages.getMessage());
         initialValues.put(DATE, messages.getTimestamp());
         initialValues.put(TYPE, messages.getMessageType());
     }
@@ -303,12 +314,12 @@ public class MessagesContentProvider extends DbContentProvider implements
 
             if (cursor.getColumnIndex(FROM) != -1) {
                 fromIndex = cursor.getColumnIndexOrThrow(FROM);
-                message.setFrom(cursor.getString(fromIndex));
+                message.setPhoneNumber(cursor.getString(fromIndex));
             }
 
             if (cursor.getColumnIndex(BODY) != -1) {
                 messageIndex = cursor.getColumnIndexOrThrow(BODY);
-                message.setBody(cursor.getString(messageIndex));
+                message.setMessage(cursor.getString(messageIndex));
             }
 
             if (cursor.getColumnIndex(DATE) != -1) {
