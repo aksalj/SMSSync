@@ -20,7 +20,7 @@ dependencies {
 }
 
 android {
-    compileSdkVersion 19
+    compileSdkVersion 21
     buildToolsVersion "21.1.2"
 
     sourceSets {
@@ -91,7 +91,7 @@ android {
         versionCode 26
         versionName "2.7.3"
         minSdkVersion 8
-        targetSdkVersion 19
+        targetSdkVersion 21
     }
 
     lintOptions {

@@ -1,7 +1,7 @@
 {
     "title" : "List of contributors to the SMSSync project",
     "note" : "Sorted by last name",
-    "total" : 14,
+    "total" : 16,
     "contributors" :
     [
         {
@@ -77,8 +77,8 @@
             "description" : "Added Message Results API, Bug fixes",
             "country" : {
                 "name" : "Poland",
-                "latitude" : 54.362417,
-                "longitude" : 18.588555
+                "latitude" : 54.494594,
+                "longitude" : 18.53811117
             }
         },
         {
@@ -168,7 +168,7 @@
                 "latitude" : 52.29778,
                 "longitude" : 104.29639
             }
-        }
+        },
         {
             "name" : "Arthur Buliva",
             "email" : "arthurbuliva@gmail.com",

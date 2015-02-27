@@ -23,6 +23,7 @@ import org.addhen.smssync.prefs.Prefs;
 import org.addhen.smssync.R;
 import org.addhen.smssync.activities.MainActivity;
 import org.addhen.smssync.receivers.ConnectivityChangedReceiver;
+import org.addhen.smssync.state.LogEvent;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -39,6 +40,7 @@ import android.net.NetworkInfo;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
 import android.os.StrictMode;
 import android.provider.Telephony;
 import android.support.v4.app.NotificationCompat;
@@ -548,13 +550,28 @@ public class Util {
         Logger.log(getClass().getName(), message, ex);
     }
 
-    public static void logActivities(Context context, String message) {
+    public static void logActivities(final Context context, final String message) {
         Logger.log(CLASS_TAG, message);
         Prefs prefs = new Prefs(context);
         if (prefs.enableLog().get()) {
-            new LogUtil(DateFormat.getDateFormatOrder(context)).appendAndClose(message);
-            status = true;
-            MainApplication.bus.post(true);
+            final Handler handler = new Handler();
+            final Runnable runnable = new Runnable() {
+                @Override
+                public void run() {
+                    MainApplication.bus.post(new LogEvent());
+                }
+            };
+
+            Thread thread = new Thread() {
+                @Override
+                public void run() {
+                    new LogUtil(DateFormat.getDateFormatOrder(context)).appendAndClose(message);
+                    handler.post(runnable);
+                }
+            };
+            thread.start();
+
+
         }
     }
 
@@ -572,16 +589,21 @@ public class Util {
     public static int getBatteryLevel(Context context) {
         Intent batteryIntent = context
                 .registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+
         int level = batteryIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
         int scale = batteryIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
 
+        return calculateBatteryLevel(level, scale);
+
+    }
+
+    public static int calculateBatteryLevel(int level, int scale) {
         if (level >= 0 && scale > 0) {
             return (level * 100) / scale;
         }
 
         return -1;
     }
-
     /**
      * Writes SMSsync's database file on a non rooted device to the SD card
      */

@@ -18,9 +18,6 @@ package org.addhen.smssync.net;
 
 import com.google.gson.Gson;
 
-import com.squareup.okhttp.FormEncodingBuilder;
-import com.squareup.okhttp.RequestBody;
-import com.squareup.okhttp.Response;
 import com.squareup.otto.Produce;
 
 import org.addhen.smssync.R;
@@ -32,14 +29,13 @@ import org.addhen.smssync.net.SyncScheme.SyncDataKey;
 import org.addhen.smssync.net.SyncScheme.SyncMethod;
 import org.addhen.smssync.util.DataFormatUtil;
 import org.addhen.smssync.util.Util;
-import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.protocol.HTTP;
 
 import android.content.Context;
 import android.content.res.Resources;
 import android.text.TextUtils;
 
-import java.util.List;
 import java.util.Locale;
 
 public class MessageSyncHttpClient extends MainHttpClient {
@@ -112,15 +108,15 @@ public class MessageSyncHttpClient extends MainHttpClient {
 
         try {
             execute();
-            Response response = getResponse();
-            int statusCode = response.code();
+            String response = getResponse();
+            int statusCode = responseCode();
 
             if (statusCode != 200 && statusCode != 201) {
                 setServerError("bad http return code", statusCode);
                 return false;
             }
             final Gson gson = new Gson();
-            SmssyncResponse smssyncResponses = gson.fromJson(response.body().charStream(), SmssyncResponse.class);
+            SmssyncResponse smssyncResponses = gson.fromJson(response, SmssyncResponse.class);
             if (smssyncResponses.getPayload().isSuccess()) {
                 // auto response message is enabled to be received from the
                 // server.
@@ -132,7 +128,7 @@ public class MessageSyncHttpClient extends MainHttpClient {
             if (!TextUtils.isEmpty(payloadError)) {
                 setServerError(payloadError, statusCode);
             } else {
-                setServerError(response.body().string(), statusCode);
+                setServerError(getResponseErrorMessage(), statusCode);
             }
         } catch (Exception e) {
             log("Request failed", e);
@@ -147,42 +143,33 @@ public class MessageSyncHttpClient extends MainHttpClient {
      * Get HTTP Entity populated with data in a format specified by the current sync scheme
      */
     private void setHttpEntity(SyncDataFormat format) throws Exception {
-        RequestBody body;
         switch (format) {
             case JSON:
-                body = RequestBody.create(JSON, DataFormatUtil.makeJSONString(getParams()));
+                setStringEntity(DataFormatUtil.makeJSONString(getParams()));
                 log("setHttpEntity format JSON");
                 Util.logActivities(context, "setHttpEntity format JSON");
                 break;
             case XML:
                 //TODO: Make parent node URL specific as well
-                body = RequestBody.create(XML,
-                        DataFormatUtil.makeXMLString(getParams(), "payload", HTTP.UTF_8));
+                setStringEntity(DataFormatUtil.makeXMLString(getParams(), "payload", HTTP.UTF_8));
                 log("setHttpEntity format XML");
                 Util.logActivities(context, context.getString(R.string.http_entity_format, "XML"));
                 break;
             case YAML:
-                body = RequestBody.create(YAML, DataFormatUtil.makeYAMLString(getParams()));
+                setStringEntity(DataFormatUtil.makeYAMLString(getParams()));
                 log("setHttpEntity format YAML");
                 Util.logActivities(context, context.getString(R.string.http_entity_format, "YAML"));
                 break;
             case URLEncoded:
                 log("setHttpEntity format URLEncoded");
-                FormEncodingBuilder formEncodingBuilder = new FormEncodingBuilder();
-                List<NameValuePair> params = getParams();
-                for (NameValuePair pair : params) {
-                    formEncodingBuilder.add(pair.getName(), pair.getValue());
-                }
                 Util.logActivities(context,
                         context.getString(R.string.http_entity_format, "URLEncoded"));
-                body = formEncodingBuilder.build();
+                setEntity(new UrlEncodedFormEntity(getParams(), HTTP.UTF_8));
                 break;
             default:
                 Util.logActivities(context, context.getString(R.string.invalid_data_format));
                 throw new Exception("Invalid data format");
         }
-
-        setRequestBody(body);
 
     }
 
@@ -205,9 +192,13 @@ public class MessageSyncHttpClient extends MainHttpClient {
     public void setServerError(String error, int statusCode) {
         log("Server error " + error);
         Resources res = context.getResources();
+
+        final String customError = res.getString(R.string.sending_failed_custom_error, error);
+
+        final String code = res.getString(R.string.sending_failed_http_code, statusCode);
+
         this.serverError = String
-                .format("%s %s ", res.getString(R.string.sending_failed_custom_error, error),
-                        res.getString(R.string.sending_failed_http_code, statusCode));
+                .format("%s %s ", customError,code);
         Util.logActivities(context, serverError);
     }
 

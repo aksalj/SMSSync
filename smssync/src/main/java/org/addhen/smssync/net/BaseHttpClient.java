@@ -20,108 +20,138 @@
 
 package org.addhen.smssync.net;
 
-import com.squareup.okhttp.Headers;
-import com.squareup.okhttp.MediaType;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.RequestBody;
-import com.squareup.okhttp.Response;
-
+import org.addhen.smssync.net.ssl.TrustedSocketFactory;
 import org.addhen.smssync.util.Logger;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpVersion;
 import org.apache.http.NameValuePair;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.conn.params.ConnManagerPNames;
+import org.apache.http.conn.params.ConnPerRouteBean;
+import org.apache.http.conn.scheme.PlainSocketFactory;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
+import org.apache.http.params.HttpProtocolParams;
 
 import android.content.Context;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.util.Base64;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 
 public abstract class BaseHttpClient {
 
-    private static final int TIME_OUT_CONNECTION = 30;
-
     private static final String DEFAULT_ENCODING = "UTF-8";
 
-    public static final MediaType JSON
-            = MediaType.parse("application/json; charset=" + DEFAULT_ENCODING);
+    private static final String CLASS_TAG = MainHttpClient.class.getSimpleName();
 
-    public static final MediaType XML = MediaType
-            .parse("application/json; charset=" + DEFAULT_ENCODING);
+    protected static DefaultHttpClient httpClient;
 
-    public static final MediaType YAML = MediaType
-            .parse("application/xml; charset=" + DEFAULT_ENCODING);
-
-    private static final String CLASS_TAG = BaseHttpClient.class.getSimpleName();
-
-    protected OkHttpClient httpClient;
+    protected static StringBuilder userAgent;
 
     protected Context context;
 
     protected String url;
 
-    private Response response;
+    private HttpParams httpParameters;
 
-    private Request request;
+    private int timeoutConnection = 60000;
+
+    private int timeoutSocket = 60000;
 
     private ArrayList<NameValuePair> params;
 
-    private Map<String, String> header;
+    private Map<String, String> headers;
 
-    private Headers headers;
+    private HttpEntity entity;
 
-    private HttpMethod method = HttpMethod.GET;
+    private HttpMethod method;
 
-    private RequestBody requestBody;
+    private int responseCode;
+
+    private String response;
+
+    private HttpResponse httpResponse;
+
+    private HttpRequestBase request;
+
+    private String responseErrorMessage;
 
     public BaseHttpClient(String url, Context context) {
 
         this.url = url;
         this.context = context;
         this.params = new ArrayList<>();
-        this.header = new HashMap<>();
+        this.headers = new HashMap<>();
 
-        httpClient = new OkHttpClient();
-        httpClient.setConnectTimeout(TIME_OUT_CONNECTION, TimeUnit.SECONDS);
-        httpClient.setWriteTimeout(TIME_OUT_CONNECTION, TimeUnit.SECONDS);
-        httpClient.setReadTimeout(TIME_OUT_CONNECTION, TimeUnit.SECONDS);
-    }
+        // default to GET
+        this.method = HttpMethod.GET;
+        request = new HttpGet(url);
 
-    private static void debug(Exception e) {
-        Logger.log(CLASS_TAG, "Exception: "
-                + e.getClass().getName()
-                + " " + getRootCause(e).getMessage());
-    }
+        httpParameters = new BasicHttpParams();
+        httpParameters.setParameter(ConnManagerPNames.MAX_TOTAL_CONNECTIONS, 1);
+        httpParameters.setParameter(
+                ConnManagerPNames.MAX_CONNECTIONS_PER_ROUTE,
+                new ConnPerRouteBean(1));
 
-    public static String base64Encode(String str) {
-        byte[] bytes = str.getBytes();
-        return Base64.encodeToString(bytes, Base64.NO_WRAP);
-    }
+        httpParameters.setParameter(HttpProtocolParams.USE_EXPECT_CONTINUE,
+                false);
+        HttpProtocolParams.setVersion(httpParameters, HttpVersion.HTTP_1_1);
+        HttpProtocolParams.setContentCharset(httpParameters, "utf8");
+        // Set the timeout in milliseconds until a connection is established.
+        HttpConnectionParams.setConnectionTimeout(httpParameters,
+                timeoutConnection);
 
-    public static Throwable getRootCause(Throwable throwable) {
-        if (throwable.getCause() != null) {
-            return getRootCause(throwable.getCause());
+        // in milliseconds which is the timeout for waiting for data.
+        HttpConnectionParams.setSoTimeout(httpParameters, timeoutSocket);
+
+        SchemeRegistry schemeRegistry = new SchemeRegistry();
+
+        // http scheme
+        schemeRegistry.register(new Scheme("http", PlainSocketFactory
+                .getSocketFactory(), 80));
+        // https scheme
+        try {
+            schemeRegistry.register(new Scheme("https",
+                    new TrustedSocketFactory(url, false), 443));
+        } catch (KeyManagementException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (NoSuchAlgorithmException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
         }
-        return throwable;
-    }
+        ThreadSafeClientConnManager manager = new ThreadSafeClientConnManager(
+                httpParameters, schemeRegistry);
 
-    public void setHeader(String name, String value) {
-        this.header.put(name, value);
-    }
+        httpClient = new DefaultHttpClient(manager, httpParameters);
 
-    public void setHeaders(Headers headers) {
-        this.headers = headers;
-    }
-
-    private void addHeader() {
-
+        // support basic auth header
         try {
             URI uri = new URI(url);
             String userInfo = uri.getUserInfo();
@@ -137,36 +167,87 @@ public abstract class BaseHttpClient {
             final String versionName = context.getPackageManager().getPackageInfo(
                     context.getPackageName(), 0).versionName;
             // Add version name to user agent
-            StringBuilder userAgent = new StringBuilder("SMSSync-Android/");
+            userAgent = new StringBuilder("SMSSync-Android/");
             userAgent.append("v");
             userAgent.append(versionName);
             setHeader("User-Agent", userAgent.toString());
         } catch (NameNotFoundException e) {
             debug(e);
         }
+    }
 
-        // set headers on request
-        Headers.Builder headerBuilder = new Headers.Builder();
-        for (String key : header.keySet()) {
-            headerBuilder.set(key, header.get(key));
+    public static String base64Encode(String str) {
+        byte[] bytes = str.getBytes();
+        return Base64.encodeToString(bytes, Base64.NO_WRAP);
+    }
+
+    public static Throwable getRootCause(Throwable throwable) {
+        if (throwable.getCause() != null) {
+            return getRootCause(throwable.getCause());
         }
-        setHeaders(headerBuilder.build());
+        return throwable;
+    }
+
+    public static String convertStreamToString(InputStream is) {
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is), 1024);
+        StringBuilder sb = new StringBuilder();
+
+        String line;
+        try {
+            while ((line = reader.readLine()) != null) {
+                sb.append(line + "\n");
+            }
+        } catch (IOException e) {
+            debug(e);
+        } finally {
+            try {
+                is.close();
+            } catch (IOException e) {
+                debug(e);
+            }
+        }
+        return sb.toString();
+    }
+
+    private static void debug(Exception e) {
+        Logger.log(CLASS_TAG, "Exception: "
+                + e.getClass().getName()
+                + " " + getRootCause(e).getMessage());
+    }
+
+    public String getResponse() {
+        return response;
+    }
+
+    public HttpResponse getResponseObject() {
+        return httpResponse;
+    }
+
+    public String getResponseErrorMessage() {
+        return responseErrorMessage;
+    }
+
+    public int responseCode() {
+        return responseCode;
     }
 
     public void addParam(String name, String value) {
-        this.params.add(new BasicNameValuePair(name, value));
+        params.add(new BasicNameValuePair(name, value));
     }
 
     public ArrayList getParams() {
         return params;
     }
 
-    public void execute() throws Exception {
+    public void setHeader(String name, String value) {
+        headers.put(name, value);
+        request.setHeader(name, value);
+    }
+
+    public HttpRequestBase getRequest() throws Exception {
         prepareRequest();
-        if (request != null) {
-            final Response resp = httpClient.newCall(request).execute();
-            setResponse(resp);
-        }
+        return request;
     }
 
     public boolean isMethodSupported(HttpMethod method) {
@@ -184,39 +265,7 @@ public abstract class BaseHttpClient {
         this.method = method;
     }
 
-    public void setRequestBody(RequestBody requestBody) throws Exception {
-        this.requestBody = requestBody;
-    }
-
-    public Request getRequest() {
-        return request;
-    }
-
-    private void prepareRequest() throws Exception {
-        addHeader();
-        // setup parameters on request
-        if (method.equals(HttpMethod.GET)) {
-            request = new Request.Builder()
-                    .url(url + getQueryString())
-                    .headers(headers)
-                    .build();
-        } else if (method.equals(HttpMethod.POST)) {
-            request = new Request.Builder()
-                    .url(url)
-                    .headers(headers)
-                    .post(requestBody)
-                    .build();
-
-        } else if (method.equals(HttpMethod.PUT)) {
-            request = new Request.Builder()
-                    .url(url)
-                    .headers(headers)
-                    .put(requestBody)
-                    .build();
-        }
-    }
-
-    private String getQueryString() throws Exception {
+    public String getQueryString() throws Exception {
         //add query parameters
         String combinedParams = "";
         if (!params.isEmpty()) {
@@ -234,12 +283,79 @@ public abstract class BaseHttpClient {
         return combinedParams;
     }
 
-    public Response getResponse() {
-        return response;
+    public HttpEntity getEntity() throws Exception {
+        // check if entity was explicitly set otherwise return params as entity
+        if (entity != null && entity.getContentLength() > 0) {
+
+            return entity;
+        } else if (!params.isEmpty()) {
+            // construct entity if not already set
+            return new UrlEncodedFormEntity(params, DEFAULT_ENCODING);
+        }
+
+        return null;
     }
 
-    public void setResponse(Response response) {
-        this.response = response;
+    public void setEntity(HttpEntity data) throws Exception {
+        entity = data;
+    }
+
+    public void setStringEntity(String data) throws Exception {
+        entity = new StringEntity(data, DEFAULT_ENCODING);
+    }
+
+    public void execute() throws Exception {
+
+        try {
+            httpResponse = httpClient.execute(getRequest());
+            responseCode = httpResponse.getStatusLine().getStatusCode();
+            responseErrorMessage = httpResponse.getStatusLine().getReasonPhrase();
+            final HttpEntity entity = httpResponse.getEntity();
+
+            if (entity != null) {
+                InputStream instream = entity.getContent();
+                response = convertStreamToString(instream);
+                // Closing the input stream will trigger connection release
+                instream.close();
+            }
+
+        } catch (ClientProtocolException e) {
+            httpClient.getConnectionManager().shutdown();
+            throw e;
+        } catch (Exception e) {
+            e.printStackTrace();
+            httpClient.getConnectionManager().shutdown();
+            throw e;
+        }
+    }
+
+    private void prepareRequest() throws Exception {
+        // setup parameters on request
+        if (method.equals(HttpMethod.GET)) {
+
+            request = new HttpGet(url + getQueryString());
+
+        } else if (method.equals(HttpMethod.POST)) {
+
+            request = new HttpPost(url);
+
+            if (getEntity() != null) {
+                ((HttpPost) request).setEntity(getEntity());
+            }
+
+        } else if (method.equals(HttpMethod.PUT)) {
+
+            request = new HttpPut(url);
+            if (getEntity() != null) {
+                ((HttpPut) request).setEntity(getEntity());
+            }
+
+        }
+
+        // set headers on request
+        for (String key : headers.keySet()) {
+            request.setHeader(key, headers.get(key));
+        }
     }
 
     protected void log(String message) {
@@ -254,19 +370,4 @@ public abstract class BaseHttpClient {
         Logger.log(getClass().getName(), message, ex);
     }
 
-    public enum HttpMethod {
-        POST("POST"),
-        GET("GET"),
-        PUT("PUT");
-
-        private final String mMethod;
-
-        HttpMethod(String method) {
-            mMethod = method;
-        }
-
-        public String value() {
-            return mMethod;
-        }
-    }
 }

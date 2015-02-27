@@ -27,6 +27,7 @@ import org.addhen.smssync.controllers.LogController;
 import org.addhen.smssync.listeners.LogListener;
 import org.addhen.smssync.models.Log;
 import org.addhen.smssync.models.PhoneStatusInfo;
+import org.addhen.smssync.state.LogEvent;
 import org.addhen.smssync.util.LogUtil;
 import org.addhen.smssync.util.Util;
 import org.addhen.smssync.views.ILogView;
@@ -54,6 +55,8 @@ public class LogFragment extends BaseListFragment<LogView, Log, LogAdapter> impl
         View.OnClickListener, AdapterView.OnItemClickListener, ILogView, LogListener {
 
     private static PhoneStatusInfo info;
+
+    private String mLogFile = null;
 
     /**
      * Receiver for getting battery state.
@@ -99,22 +102,22 @@ public class LogFragment extends BaseListFragment<LogView, Log, LogAdapter> impl
         view.enableLogs.setChecked(prefs.enableLog().get());
         view.enableLogs.setOnClickListener(this);
         mLogController.setView(this);
-        MainApplication.bus.register(this);
     }
 
     @Override
     public void onResume() {
         log("onResume()");
         super.onResume();
+        MainApplication.bus.register(this);
         getActivity().registerReceiver(batteryLevelReceiver,
                 new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         loadLogs();
     }
 
     @Override
-    public void onDestroy() {
-        log("onDestroy()");
-        super.onDestroy();
+    public void onPause() {
+        log("onStop()");
+        super.onPause();
         MainApplication.bus.unregister(this);
     }
 
@@ -160,8 +163,7 @@ public class LogFragment extends BaseListFragment<LogView, Log, LogAdapter> impl
     }
 
     @Subscribe
-    public void reloadLog(boolean status) {
-        //if (status) {
+    public void reloadLog(LogEvent event) {
         adapter.setItems(LogUtil.readLogFile(LogUtil.LOG_NAME));
 
         // Set the location of the log file
@@ -170,7 +172,6 @@ public class LogFragment extends BaseListFragment<LogView, Log, LogAdapter> impl
                     LogUtil.getFile(LogUtil.LOG_NAME).getAbsolutePath()));
             view.logLcation.setVisibility(View.VISIBLE);
         }
-        //}
     }
 
     private Intent createShareIntent() {
@@ -207,20 +208,14 @@ public class LogFragment extends BaseListFragment<LogView, Log, LogAdapter> impl
     }
 
     private void loadLogs() {
-        new Handler().post(new Runnable() {
+        adapter.setItems(LogUtil.readLogFile(LogUtil.LOG_NAME));
 
-            @Override
-            public void run() {
-                adapter.setItems(LogUtil.readLogFile(LogUtil.LOG_NAME));
-
-                // Set the location of the log file
-                if (adapter.getCount() > 0) {
-                    view.logLcation.setText(getString(R.string.log_saved_at,
-                            LogUtil.getFile(LogUtil.LOG_NAME).getAbsolutePath()));
-                    view.logLcation.setVisibility(View.VISIBLE);
-                }
-            }
-        });
+        // Set the location of the log file
+        if (adapter.getCount() > 0) {
+            view.logLcation.setText(getString(R.string.log_saved_at,
+                    LogUtil.getFile(LogUtil.LOG_NAME).getAbsolutePath()));
+            view.logLcation.setVisibility(View.VISIBLE);
+        }
     }
 
     private void deleteLogs() {
