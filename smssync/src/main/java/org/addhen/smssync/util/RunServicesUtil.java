@@ -53,8 +53,10 @@ public class RunServicesUtil {
      * @return ScheduleServices
      */
     public void runAutoSyncService() {
+
         // Push any pending messages now that we have connectivity
         if (prefs.enableAutoSync().get() && prefs.serviceEnabled().get()) {
+
             // start the scheduler for auto sync service
             final long interval = TimeFrequencyUtil.calculateInterval(prefs.autoTime().get());
             final Intent intent = new Intent(context, AutoSyncScheduledReceiver.class);
@@ -64,6 +66,7 @@ public class RunServicesUtil {
                     interval);
 
         }
+
     }
 
     /**

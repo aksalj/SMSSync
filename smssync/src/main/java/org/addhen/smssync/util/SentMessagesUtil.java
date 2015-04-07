@@ -18,16 +18,10 @@
 package org.addhen.smssync.util;
 
 
-import org.addhen.smssync.MainApplication;
-import org.addhen.smssync.database.Messages;
+import org.addhen.smssync.App;
+import org.addhen.smssync.database.BaseDatabseHelper;
 import org.addhen.smssync.models.Message;
-
-import android.content.Context;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-
+import static org.addhen.smssync.database.BaseDatabseHelper.DatabaseCallback;
 /**
  * Utility class for sent messages feature
  *
@@ -47,8 +41,36 @@ public class SentMessagesUtil {
                 "processMessages(): Process text messages as received from the user's phone");
 
         if(message !=null) {
-            MainApplication.mDb.addSentMessage(message);
-           return true;
+            message.setStatus(Message.Status.SENT);
+            if(message.getId() == null || message.getId() == 0) {
+                App.getDatabaseInstance().getMessageInstance().put(message, new DatabaseCallback<Void>() {
+                    @Override
+                    public void onFinished(Void result) {
+
+                    }
+
+                    @Override
+                    public void onError(Exception exception) {
+
+                    }
+                });
+            } else {
+                App.getDatabaseInstance().getMessageInstance().update(message,
+                        new BaseDatabseHelper.DatabaseCallback<Void>() {
+                            @Override
+                            public void onFinished(Void result) {
+
+                            }
+
+                            @Override
+                            public void onError(Exception exception) {
+
+                            }
+                        });
+            }
+
+            return true;
+
         }
 
         return false;

@@ -1,10 +1,12 @@
 package org.addhen.smssync.receivers;
 
-import org.addhen.smssync.MainApplication;
+import org.addhen.smssync.App;
 import org.addhen.smssync.R;
 import org.addhen.smssync.controllers.AlertCallbacks;
+import org.addhen.smssync.database.BaseDatabseHelper;
 import org.addhen.smssync.models.Message;
 import org.addhen.smssync.prefs.Prefs;
+import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.ServicesConstants;
 
 import android.app.Activity;
@@ -12,9 +14,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.telephony.SmsManager;
-
-import static org.addhen.smssync.messages.ProcessSms.FAILED;
-import static org.addhen.smssync.messages.ProcessSms.TASK;
 
 /**
  * Created by Tomasz Stalka(tstalka@soldevelo.com) on 5/5/14.
@@ -29,7 +28,7 @@ public class SmsSentReceiver extends BaseBroadcastReceiver {
             message = (Message) extras.getSerializable(ServicesConstants.SENT_SMS_BUNDLE);
         }
         final int result = getResultCode();
-        Boolean sentSuccess = false;
+        boolean sentSuccess = false;
         log("smsSentReceiver onReceive result: " + result);
 
         final String resultMessage;
@@ -69,11 +68,25 @@ public class SmsSentReceiver extends BaseBroadcastReceiver {
         if (message != null) {
             message.setSentResultMessage(resultMessage);
             message.setSentResultCode(result);
+            Logger.log("Sent", "message sent "+message);
             if (sentSuccess) {
-                message.setMessageType(TASK);
-                MainApplication.mDb
-                        .updateSentResult(message); //update type, sent result msg and code
+                message.setStatus(Message.Status.SENT);
+                App.getDatabaseInstance().getMessageInstance().updateSentFields(message,
+                        new BaseDatabseHelper.DatabaseCallback<Void>() {
+                            @Override
+                            public void onFinished(Void result) {
+                                // Save details to sent inbox
+                            }
+
+                            @Override
+                            public void onError(Exception exception) {
+
+                            }
+                        });
+
             } else {
+                //TODO: Renable if alert is made configurable.
+                /*
                 final String errorCode;
                 final AlertCallbacks alertCallbacks = new AlertCallbacks(new Prefs(context));
                 if (intent.hasExtra("errorCode")) {
@@ -86,11 +99,41 @@ public class SmsSentReceiver extends BaseBroadcastReceiver {
                     public void run() {
                         alertCallbacks.smsSendFailedRequest(resultMessage, errorCode);
                     }
-                }).start();
+                }).start();*/
 
-                message.setMessageType(FAILED);
-                message.save();// save message into pending tray
-                MainApplication.mDb.deleteSentMessagesByUuid(message.getUuid());
+                Prefs prefs = new Prefs(context);
+                boolean deleted = false;
+
+                Logger.log(SmsSentReceiver.class.getSimpleName(), "Statuses: "+prefs.enableRetry().get());
+                if (prefs.enableRetry().get()) {
+                    final int retry = prefs.retries().get();
+                    if (message.getRetries() > retry) {
+                        App.getDatabaseInstance().getMessageInstance().deleteByUuid(message.getUuid());
+                        // Mark message as deleted so it's not updated
+                        deleted = true;
+                    } else {
+                        int retries = message.getRetries() + 1;
+                        message.setRetries(retries);
+                    }
+                }
+
+                // Make sure the message is not deleted before attempting to update it retries status;
+                if (!deleted) {
+                    message.setStatus(Message.Status.FAILED);
+                Logger.log(SmsSentReceiver.class.getSimpleName(), "messages "+message);
+                    App.getDatabaseInstance().getMessageInstance().updateSentFields(message,
+                            new BaseDatabseHelper.DatabaseCallback<Void>() {
+                                @Override
+                                public void onFinished(Void result) {
+
+                                }
+
+                                @Override
+                                public void onError(Exception exception) {
+
+                                }
+                            });
+                }
             }
         }
 

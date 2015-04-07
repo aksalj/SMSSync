@@ -17,9 +17,8 @@
 
 package org.addhen.smssync.navdrawer;
 
-import org.addhen.smssync.activities.DonationActivity;
+import org.addhen.smssync.fragments.DonationFragment;
 
-import android.content.Intent;
 import android.support.v7.app.ActionBarActivity;
 
 /**
@@ -27,12 +26,8 @@ import android.support.v7.app.ActionBarActivity;
  */
 public class DonationNavDrawerItem extends BaseNavDrawerItem {
 
-    /**
-     *
-     * @param title
-     * @param iconRes
-     * @param activity
-     */
+    private static final String TAG = "donation";
+
     public DonationNavDrawerItem(String title, int iconRes,
             ActionBarActivity activity) {
         super(title, iconRes, activity);
@@ -40,8 +35,8 @@ public class DonationNavDrawerItem extends BaseNavDrawerItem {
 
     @Override
     protected void onSelectItem() {
-        Intent i = new Intent(mActivity, DonationActivity.class);
-        launchActivity(i);
+        fragment = new DonationFragment();
+        showFragment(TAG);
     }
 
     @Override

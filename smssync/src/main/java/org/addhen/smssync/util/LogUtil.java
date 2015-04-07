@@ -1,11 +1,10 @@
 package org.addhen.smssync.util;
 
-import org.addhen.smssync.listeners.LogListener;
-import org.addhen.smssync.models.Log;
-import org.addhen.smssync.state.LogEvent;
-
 import android.os.Environment;
 import android.text.format.DateFormat;
+
+import org.addhen.smssync.listeners.LogListener;
+import org.addhen.smssync.models.Log;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -18,14 +17,13 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 /**
  * Keep log of activities through out most part of the application
- *
+ * <p/>
  * Highly based on the AppLog file at https://github.com/jberkel/sms-backup-plus/blob/master/src/com/zegoggles/smssync/utils/AppLog.java
  */
 public class LogUtil {
@@ -50,12 +48,12 @@ public class LogUtil {
 
     private LogUtil(String name, char[] format) {
         for (char c : format) {
-            if (c == DateFormat.MONTH) {
+            if (c == 'M') {
                 dateFormat = "MM-dd kk:mm";
                 break;
             }
 
-            if (c == DateFormat.DATE) {
+            if (c == 'd') {
                 dateFormat = "dd-MM kk:mm";
                 break;
             }
@@ -161,47 +159,32 @@ public class LogUtil {
      * @param file The file to read
      * @return List of log lines
      */
-    public static List<Log> readLogFile(final File file) {
-        List<Log> logs = null;
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        Future<List<Log>> result = executorService.submit(new Callable<List<Log>>() {
-            @Override
-            public List<Log> call() throws Exception {
-                List<Log> logger = new ArrayList<>();
-                if (file.exists()) {
-                    BufferedReader bufferedReader = null;
-                    try {
-                        bufferedReader = new BufferedReader(new FileReader(file));
-                        String fileLine;
-                        while ((fileLine = bufferedReader.readLine()) != null) {
-                            Log log = new Log();
-                            log.setMessage(fileLine);
-                            logger.add(log);
-                        }
-                    } catch (IOException e) {
-                        Logger.log(TAG, "Error reading log file", e);
-                    } finally {
-                        if (bufferedReader != null) {
-                            try {
-                                bufferedReader.close();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-
-                        }
-                    }
+    public static List<Log> readLogFile(File file) {
+        List<Log> logs = new ArrayList<Log>();
+        if (file.exists()) {
+            BufferedReader bufferedReader = null;
+            try {
+                bufferedReader = new BufferedReader(new FileReader(file));
+                String fileLine;
+                while ((fileLine = bufferedReader.readLine()) != null) {
+                    Log log = new Log();
+                    log.setMessage(fileLine);
+                    logs.add(log);
                 }
-                return logger;
+            } catch (IOException e) {
+                Logger.log(TAG, "Error reading log file", e);
+            } finally {
+                if (bufferedReader != null) {
+                    try {
+                        bufferedReader.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                }
             }
-
-        });
-        try {
-            executorService.shutdown();
-           return result.get();
-        }catch(Exception e) {
-            return logs;
         }
-
+        return logs;
     }
 
     public static String readLogs(String name) {
@@ -214,45 +197,31 @@ public class LogUtil {
      * @param file The log file to delete.
      * @return The read log entries.
      */
-    public static String readLogs(final File file) {
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        Future<String> result = executorService.submit(new Callable<String>() {
-            @Override
-            public String call() throws Exception {
-                StringBuffer logs = new StringBuffer();
-                if (file.exists()) {
-                    BufferedReader bufferedReader = null;
-                    try {
-                        bufferedReader = new BufferedReader(new FileReader(file));
-                        String fileLine;
-                        while ((fileLine = bufferedReader.readLine()) != null) {
-                            logs.append(fileLine);
-                            logs.append("\n");
-                        }
-                    } catch (IOException e) {
-                        Logger.log(TAG, "Error reading log file", e);
-                    } finally {
-                        if (bufferedReader != null) {
-                            try {
-                                bufferedReader.close();
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-
-                        }
-                    }
+    public static String readLogs(File file) {
+        StringBuffer logs = new StringBuffer();
+        if (file.exists()) {
+            BufferedReader bufferedReader = null;
+            try {
+                bufferedReader = new BufferedReader(new FileReader(file));
+                String fileLine;
+                while ((fileLine = bufferedReader.readLine()) != null) {
+                    logs.append(fileLine);
+                    logs.append("\n");
                 }
-                return logs.toString();
-            }
-        });
+            } catch (IOException e) {
+                Logger.log(TAG, "Error reading log file", e);
+            } finally {
+                if (bufferedReader != null) {
+                    try {
+                        bufferedReader.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
 
-        try {
-            executorService.shutdown();
-            return result.get();
-        }catch(Exception e) {
-            e.printStackTrace();
-            return null;
+                }
+            }
         }
+        return logs.toString();
     }
 
     /**
@@ -260,20 +229,9 @@ public class LogUtil {
      *
      * @param line The line to append to the file.
      */
-    public void appendAndClose(String line, LogListener listener) {
+    public void appendAndClose(String line) {
         append(line);
         close();
-        mLogListener = listener;
-        mLogListener.reloadLog(new LogEvent());
-    }
-
-    public void appendAndClose(String line) {
-        appendAndClose(line, new LogListener() {
-            @Override
-            public void reloadLog(LogEvent event) {
-
-            }
-        });
     }
 
     /**
@@ -302,25 +260,10 @@ public class LogUtil {
      * @param file The file to delete.
      * @return the status of the delete action. true/false
      */
-    public static boolean deleteLog(final File file) {
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-        Future<Boolean> result = executorService.submit(new Callable<Boolean>() {
-
-            @Override
-            public Boolean call() throws Exception {
-                if (file.exists()) {
-                    return file.delete();
-                }
-                return false;
-            }
-        });
-
-        try {
-            executorService.shutdown();
-            return result.get();
-        }catch(Exception e) {
-            e.printStackTrace();
-            return false;
+    public static boolean deleteLog(File file) {
+        if (file.exists()) {
+            return file.delete();
         }
+        return false;
     }
 }

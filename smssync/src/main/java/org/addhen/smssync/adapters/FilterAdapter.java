@@ -33,9 +33,7 @@ public class FilterAdapter extends BaseListAdapter<Filter> {
 
         public Widgets(View convertView) {
             super(convertView);
-
             phoneNumber = (TextView) convertView.findViewById(R.id.filter_phone_number);
-
         }
 
     }
@@ -64,6 +62,5 @@ public class FilterAdapter extends BaseListAdapter<Filter> {
 
     @Override
     public void refresh() {
-
     }
 }

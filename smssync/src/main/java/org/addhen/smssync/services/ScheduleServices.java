@@ -71,10 +71,11 @@ public class ScheduleServices {
         if (mgr != null && pendingIntent != null) {
             Logger.log(CLASS_TAG, "Update scheduler to " + interval);
             Util.logActivities(mContext, mContext.getString(R.string.scheduler_updated_to));
-            mgr.setRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            mgr.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     SystemClock.elapsedRealtime() + 60000, interval, pendingIntent);
 
         }
+
     }
 
 }

@@ -17,189 +17,170 @@
 
 package org.addhen.smssync.models;
 
-import org.addhen.smssync.database.Database;
+import com.google.gson.annotations.SerializedName;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Date;
+
+import nl.qbusict.cupboard.annotation.Column;
 
 /**
- * Holds the messages to be sent via HTTP request
+ * Class to handle set and getters.
+ *
+ * @author eyedol
  */
 public class Message extends Model implements Serializable {
 
-    private static final long serialVersionUID = -7913005651109626889L;
+    private static final long serialVersionUID = -8314239850052623552L;
 
-    private String message;
+    @SerializedName("message")
+    @Column("messages_body")
+    private String messageBody;
 
-    private String to;
+    @SerializedName("to")
+    @Column("messages_from")
+    private String messageFrom;
 
-    private String timestamp;
+    @SerializedName("timestamp")
+    @Column("messages_date")
+    private Date messageDate;
 
-    private String uuid;
+    @SerializedName("uuid")
+    @Column("message_uuid")
+    private String messageUuid;
 
-    private int mMessageType;
+    @Column("message_type")
+    private Type messageType;
 
-    private int mSentResultCode;
+    @Column("sent_result_code")
+    private int sentResultCode;
 
-    private String mSentResultMessage;
+    @Column("sent_result_message")
+    private String sentResultMessage;
 
-    private int mDeliveryResultCode;
+    @Column("delivery_result_code")
+    private int deliveryResultCode;
 
-    private String mDeliveryResultMessage;
+    @Column("delivery_result_message")
+    private String deliveryResultMessage;
 
-    private List<Message> mMessageList;
+    @Column("retries")
+    private int retries;
 
-    public Message() {
-        mMessageType = 0;
-        mSentResultCode = -2;
-        mSentResultMessage = "";
-        mDeliveryResultCode = -2;
-        mDeliveryResultMessage = "";
-        mMessageList = new ArrayList<>();
+    @Column("status")
+    private Status status;
+
+    public String getBody() {
+        return messageBody;
     }
 
-    @Override
-    public boolean load() {
-        mMessageList = Database.messagesContentProvider.fetchAllMessages();
-        return mMessageList != null;
-    }
-
-    public boolean loadByUuid(String messageUuid) {
-        mMessageList = Database.messagesContentProvider
-                .fetchMessagesByUuid(messageUuid);
-        return mMessageList != null;
-    }
-
-    public boolean loadByLimit(int limit) {
-        mMessageList = Database.messagesContentProvider
-                .fetchMessagesByLimit(limit);
-        return mMessageList != null;
-    }
-
-    @Override
-    public boolean save() {
-        return Database.messagesContentProvider.addMessage(this);
-    }
-
-    /**
-     * Delete all pending messages.
-     *
-     * @return boolean
-     */
-    public boolean deleteAllMessages() {
-        return Database.messagesContentProvider.deleteAllMessages();
-    }
-
-    /**
-     * Delete messages by UUID
-     *
-     * @param messageUuid - The message's UUID
-     * @return boolean
-     */
-    public boolean deleteMessagesByUuid(String messageUuid) {
-        return Database.messagesContentProvider
-                .deleteMessagesByUuid(messageUuid);
-    }
-
-    /**
-     * Count total number of pending messages.
-     *
-     * @return int
-     */
-    public int totalMessages() {
-        return Database.messagesContentProvider.messagesCount();
-    }
-
-    public List<Message> getMessageList() {
-        return this.mMessageList;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String body) {
-        this.message = body;
+    public void setBody(String messageBody) {
+        this.messageBody = messageBody;
     }
 
     public String getPhoneNumber() {
-        return to;
+        return messageFrom;
     }
 
-    public void setPhoneNumber(String from) {
-        this.to = from;
+    public void setPhoneNumber(String messageFrom) {
+        this.messageFrom = messageFrom;
     }
 
-    public String getTimestamp() {
-        return timestamp;
+    public Date getDate() {
+        return messageDate;
     }
 
-    public void setTimestamp(String timestamp) {
-        this.timestamp = timestamp;
+    public void setDate(Date messageDate) {
+        this.messageDate = messageDate;
     }
 
     public String getUuid() {
-        return uuid;
+        return messageUuid;
     }
 
-    public void setUuid(String uuid) {
-        this.uuid = uuid;
+    public void setUuid(String messageUuid) {
+        this.messageUuid = messageUuid;
     }
 
-    public int getMessageType() {
-        return mMessageType;
+    public Type getType() {
+        return messageType;
     }
 
-    public void setMessageType(int mMessageType) {
-        this.mMessageType = mMessageType;
+    public void setType(Type messageType) {
+        this.messageType = messageType;
     }
 
     public int getSentResultCode() {
-        return mSentResultCode;
+        return sentResultCode;
     }
 
-    public void setSentResultCode(int mSentResultCode) {
-        this.mSentResultCode = mSentResultCode;
+    public void setSentResultCode(int sentResultCode) {
+        this.sentResultCode = sentResultCode;
     }
 
     public String getSentResultMessage() {
-        return mSentResultMessage;
+        return sentResultMessage;
     }
 
-    public void setSentResultMessage(String mSentResultMessage) {
-        this.mSentResultMessage = mSentResultMessage;
+    public void setSentResultMessage(String sentResultMessage) {
+        this.sentResultMessage = sentResultMessage;
     }
 
     public int getDeliveryResultCode() {
-        return mDeliveryResultCode;
+        return deliveryResultCode;
     }
 
-    public void setDeliveryResultCode(int mDeliveryResultCode) {
-        this.mDeliveryResultCode = mDeliveryResultCode;
+    public void setDeliveryResultCode(int deliveryResultCode) {
+        this.deliveryResultCode = deliveryResultCode;
     }
 
     public String getDeliveryResultMessage() {
-        return mDeliveryResultMessage;
+        return deliveryResultMessage;
     }
 
-    public void setDeliveryResultMessage(String mDeliveryResultMessage) {
-        this.mDeliveryResultMessage = mDeliveryResultMessage;
+    public void setDeliveryResultMessage(String deliveryResultMessage) {
+        this.deliveryResultMessage = deliveryResultMessage;
+    }
+
+    public int getRetries() {
+        return this.retries;
+    }
+
+    public void setRetries(int retries) {
+        this.retries = retries;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
+    public enum Status {
+        UNCONFIRMED, FAILED, SENT;
+    }
+
+    public enum Type {
+        TASK, PENDING;
     }
 
     @Override
     public String toString() {
         return "Message{" +
-                "message='" + message + '\'' +
-                ", to='" + to + '\'' +
-                ", timestamp='" + timestamp + '\'' +
-                ", uuid='" + uuid + '\'' +
-                ", mMessageType=" + mMessageType +
-                ", mSentResultCode=" + mSentResultCode +
-                ", mSentResultMessage='" + mSentResultMessage + '\'' +
-                ", mDeliveryResultCode=" + mDeliveryResultCode +
-                ", mDeliveryResultMessage='" + mDeliveryResultMessage + '\'' +
-                ", mMessageList=" + mMessageList +
+                "id=" + getId() + '\'' +
+                "messageBody='" + getBody() + '\'' +
+                ", messageFrom='" + getPhoneNumber() + '\'' +
+                ", messageDate='" + getDate() + '\'' +
+                ", messageUuid='" + getUuid() + '\'' +
+                ", messageType=" + getType() +
+                ", sentResultCode=" + getSentResultCode() +
+                ", sentResultMessage='" + getSentResultMessage() + '\'' +
+                ", deliveryResultCode=" + getDeliveryResultCode() +
+                ", deliveryResultMessage='" + getDeliveryResultMessage() + '\'' +
+                ", retries=" + getRetries() +
+                ", status=" + getStatus() +
                 '}';
     }
 }

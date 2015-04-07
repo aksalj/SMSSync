@@ -17,9 +17,13 @@
 
 package org.addhen.smssync.adapters;
 
+import org.addhen.smssync.App;
+import org.addhen.smssync.UiThread;
+import org.addhen.smssync.database.BaseDatabseHelper;
+import static org.addhen.smssync.database.BaseDatabseHelper.DatabaseCallback;
+import org.addhen.smssync.models.SyncUrl;
 import org.addhen.smssync.prefs.Prefs;
 import org.addhen.smssync.R;
-import org.addhen.smssync.models.SyncUrl;
 
 import android.content.Context;
 import android.view.View;
@@ -27,6 +31,8 @@ import android.view.ViewGroup;
 import android.widget.CheckedTextView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import java.util.List;
 
 public class SyncUrlAdapter extends BaseListAdapter<SyncUrl> {
 
@@ -67,32 +73,44 @@ public class SyncUrlAdapter extends BaseListAdapter<SyncUrl> {
                 // enabled Sync URL
                 // this is to allow the user to disable the SMSSync service
                 // before the last Sync URL is disabled.
-                final int total = syncUrls.totalActiveSynUrl();
-                if ((total == 1) && (prefs.serviceEnabled().get())) {
+                App.getDatabaseInstance().getSyncUrlInstance().totalActiveSyncUrl(new DatabaseCallback<Integer>() {
+                    @Override
+                    public void onFinished(final Integer result) {
+                        UiThread.getInstance().post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if ((result == 1) && (prefs.serviceEnabled().get())) {
 
-                    Toast.makeText(context, R.string.disable_last_sync_url, Toast.LENGTH_LONG)
-                            .show();
-                } else {
-                    getItem(position).setStatus(0);
+                                    Toast.makeText(context, R.string.disable_last_sync_url, Toast.LENGTH_LONG)
+                                            .show();
+                                } else {
 
-                    updateStatus(position);
-                    listCheckBox.setChecked(false);
-                }
+                                    updateStatus(SyncUrl.Status.DISABLED, position);
+                                    listCheckBox.setChecked(false);
+                                }
+                            }
+                        });
+
+                    }
+
+                    @Override
+                    public void onError(Exception exception) {
+
+                    }
+                });
+
             } else {
-                getItem(position).setStatus(1);
-                updateStatus(position);
+
+                updateStatus(SyncUrl.Status.ENABLED,position);
                 listCheckBox.setChecked(true);
             }
         }
 
     }
 
-    private SyncUrl syncUrls;
-
     private Prefs prefs;
     public SyncUrlAdapter(Context context) {
         super(context);
-        syncUrls = new SyncUrl();
         prefs = new Prefs(context);
     }
 
@@ -114,7 +132,7 @@ public class SyncUrlAdapter extends BaseListAdapter<SyncUrl> {
         widgets.secret.setText(getItem(position).getSecret());
         widgets.position = position;
 
-        if (getItem(position).getStatus() == 1) {
+        if (getItem(position).getStatus() == SyncUrl.Status.ENABLED) {
             widgets.listCheckBox.setChecked(true);
         } else {
             widgets.listCheckBox.setChecked(false);
@@ -125,19 +143,41 @@ public class SyncUrlAdapter extends BaseListAdapter<SyncUrl> {
 
     @Override
     public void refresh() {
-        if (syncUrls.load()) {
-            this.setItems(syncUrls.getSyncUrlList());
-        }
+        App.getDatabaseInstance().getSyncUrlInstance().fetchSyncUrl(new BaseDatabseHelper.DatabaseCallback<List<SyncUrl>>() {
+            @Override
+            public void onFinished(List<SyncUrl> result) {
+                setItems(result);
+            }
+
+            @Override
+            public void onError(Exception exception) {
+
+            }
+        });
+
     }
 
     /**
      * Update the status of a Sync URL. Making it enabled or disabled.
      *
-     * @param position 1 for enabled and 0 for disabled.
-     * @return boolean
+     * @param  status
+     * @param  position
+     * @return void
      */
-    public boolean updateStatus(int position) {
-        return syncUrls.updateStatus(this.getItem(position));
+    public void updateStatus(final SyncUrl.Status status, final int position) {
+        final SyncUrl syncUrl = getItem(position);
+        syncUrl.setStatus(status);
+        App.getDatabaseInstance().getSyncUrlInstance().put(syncUrl, new BaseDatabseHelper.DatabaseCallback<Void>() {
+            @Override
+            public void onFinished(Void result) {
+
+            }
+
+            @Override
+            public void onError(Exception exception) {
+
+            }
+        });
     }
 
 }

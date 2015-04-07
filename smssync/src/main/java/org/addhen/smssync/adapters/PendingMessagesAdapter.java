@@ -17,13 +17,20 @@
 
 package org.addhen.smssync.adapters;
 
+import org.addhen.smssync.App;
 import org.addhen.smssync.R;
+import org.addhen.smssync.database.BaseDatabseHelper;
 import org.addhen.smssync.models.Message;
+
+import static org.addhen.smssync.models.Message.Type;
 
 import android.content.Context;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import java.util.List;
+import java.util.Locale;
 
 public class PendingMessagesAdapter extends BaseListAdapter<Message> {
 
@@ -38,6 +45,8 @@ public class PendingMessagesAdapter extends BaseListAdapter<Message> {
 
         TextView messageType;
 
+        TextView messageStatus;
+
         public Widgets(View convertView) {
             super(convertView);
             messageFrom = (TextView) convertView
@@ -47,6 +56,8 @@ public class PendingMessagesAdapter extends BaseListAdapter<Message> {
             message = (TextView) convertView.findViewById(R.id.message);
             messageType = (TextView) convertView
                     .findViewById(R.id.sent_message_type);
+
+            messageStatus = (TextView) convertView.findViewById(R.id.sent_message_status);
         }
 
         @Override
@@ -55,11 +66,8 @@ public class PendingMessagesAdapter extends BaseListAdapter<Message> {
         }
     }
 
-    private Message message;
-
     public PendingMessagesAdapter(Context context) {
         super(context);
-        message = new Message();
     }
 
     @Override
@@ -75,35 +83,46 @@ public class PendingMessagesAdapter extends BaseListAdapter<Message> {
 
         // initialize view with content
         widgets.messageFrom.setText(getItem(position).getPhoneNumber());
-        widgets.messageDate.setText(formatDate(getItem(position)
-                .getTimestamp()));
-        widgets.message.setText(getItem(position).getMessage());
+        if(getItem(position)
+                .getDate() !=null) {
+            widgets.messageDate.setText(formatDate(getItem(position)
+                    .getDate()));
+        }
+        widgets.message.setText(getItem(position).getBody());
 
         // Pending messages
-        if (getItem(position).getMessageType() == 0) {
-            widgets.messageType.setText(R.string.sms);
-            widgets.messageType.setTextColor(context.getResources().getColor(
-                    R.color.pending_color));
-
-        } else if (getItem(position).getMessageType() == 1) {
+        if (getItem(position).getType() == Type.PENDING) {
+            widgets.messageType.setText(context.getString(R.string.sms).toUpperCase(
+                    Locale.getDefault()));
+        } else if (getItem(position).getType() == Type.TASK) {
             // Task messages
-            widgets.messageType.setText(R.string.task);
-            widgets.messageType.setTextColor(context.getResources().getColor(
-                    R.color.task_color));
-        } else {
-            // Failed task messages
-            widgets.messageType.setText(R.string.failed);
-            widgets.messageType.setTextColor(context.getResources().getColor(
-                    R.color.task_color));
+            widgets.messageType.setText(context.getString(R.string.task).toUpperCase(Locale.getDefault()));
         }
+        widgets.messageType.setTextColor(context.getResources().getColor(
+                R.color.task_color));
+
+        widgets.messageStatus.setText(getItem(position).getStatus().name());
+        widgets.messageStatus.setTextColor(context.getResources().getColor(
+                R.color.pending_color));
 
         return view;
     }
 
     @Override
     public void refresh() {
-        if (message.load()) {
-            setItems(message.getMessageList());
-        }
+
+        App.getDatabaseInstance().getMessageInstance().fetchAll(
+                new BaseDatabseHelper.DatabaseCallback<List<Message>>() {
+            @Override
+            public void onFinished(List<Message> result) {
+                setItems(result);
+            }
+
+            @Override
+            public void onError(Exception exception) {
+
+            }
+        });
+
     }
 }

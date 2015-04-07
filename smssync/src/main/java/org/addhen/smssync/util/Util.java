@@ -17,8 +17,8 @@
 
 package org.addhen.smssync.util;
 
+import org.addhen.smssync.App;
 import org.addhen.smssync.BuildConfig;
-import org.addhen.smssync.MainApplication;
 import org.addhen.smssync.prefs.Prefs;
 import org.addhen.smssync.R;
 import org.addhen.smssync.activities.MainActivity;
@@ -41,6 +41,7 @@ import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.StrictMode;
 import android.provider.Telephony;
 import android.support.v4.app.NotificationCompat;
@@ -436,27 +437,33 @@ public class Util {
     /**
      * For debugging purposes. Append content of a string to a file
      */
-    public static void appendLog(String text) {
-        File logFile = new File(Environment.getExternalStorageDirectory(),
+    public static void appendLog(final String text) {
+        final File logFile = new File(Environment.getExternalStorageDirectory(),
                 "smssync.txt");
-        if (!logFile.exists()) {
-            try {
-                logFile.createNewFile();
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                if (!logFile.exists()) {
+                    try {
+                        logFile.createNewFile();
+                    } catch (IOException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                }
+                try {
+                    // BufferedWriter for performance, true to set append to file flag
+                    BufferedWriter buf = new BufferedWriter(new FileWriter(logFile,
+                            true));
+                    buf.append(text);
+                    buf.newLine();
+                    buf.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-        }
-        try {
-            // BufferedWriter for performance, true to set append to file flag
-            BufferedWriter buf = new BufferedWriter(new FileWriter(logFile,
-                    true));
-            buf.append(text);
-            buf.newLine();
-            buf.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        }).start();
+
     }
 
     public static String getPhoneNumber(Context context) {
@@ -554,24 +561,8 @@ public class Util {
         Logger.log(CLASS_TAG, message);
         Prefs prefs = new Prefs(context);
         if (prefs.enableLog().get()) {
-            final Handler handler = new Handler();
-            final Runnable runnable = new Runnable() {
-                @Override
-                public void run() {
-                    MainApplication.bus.post(new LogEvent());
-                }
-            };
-
-            Thread thread = new Thread() {
-                @Override
-                public void run() {
-                    new LogUtil(DateFormat.getDateFormatOrder(context)).appendAndClose(message);
-                    handler.post(runnable);
-                }
-            };
-            thread.start();
-
-
+            new LogUtil(DateFormat.getDateFormatOrder(context)).appendAndClose(message);
+            App.bus.post(new LogEvent());
         }
     }
 

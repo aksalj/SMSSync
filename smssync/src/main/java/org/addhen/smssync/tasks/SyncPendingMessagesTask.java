@@ -19,7 +19,7 @@ package org.addhen.smssync.tasks;
 
 import com.squareup.otto.Subscribe;
 
-import org.addhen.smssync.MainApplication;
+import org.addhen.smssync.App;
 import org.addhen.smssync.SyncDate;
 import org.addhen.smssync.exceptions.ConnectivityException;
 import org.addhen.smssync.messages.ProcessMessage;
@@ -75,26 +75,14 @@ public class SyncPendingMessagesTask extends
             return new SyncPendingMessagesState(FINISHED_SYNC, 0, 0, 0, 0, SyncType.MANUAL, null);
         }
 
-        try {
-            // lock resources need to keep this sync alive
-            mService.acquireLocks();
+        return sync(config);
 
-            return sync(config);
-
-        } catch (ConnectivityException e) {
-            Logger.log(CLASS_TAG, "No internet connection");
-            return transition(ERROR, e);
-
-        } finally {
-            // release resources
-            mService.releaseLocks();
-        }
     }
 
     @Override
     protected void onPreExecute() {
         // register bus for passing events around
-        MainApplication.bus.register(this);
+        App.bus.register(this);
     }
 
     @Subscribe
@@ -109,17 +97,17 @@ public class SyncPendingMessagesTask extends
             post(result);
         }
         // un-register bus to stop listening for events
-        MainApplication.bus.unregister(this);
+        App.bus.unregister(this);
     }
 
     @Override
     protected void onCancelled() {
         post(transition(CANCELED_SYNC, null));
-        MainApplication.bus.unregister(this);
+        App.bus.unregister(this);
     }
 
     private void post(SyncPendingMessagesState state) {
-        MainApplication.bus.post(state);
+        App.bus.post(state);
     }
 
     private SyncPendingMessagesState transition(SyncState state, Exception exception) {
@@ -172,22 +160,20 @@ public class SyncPendingMessagesTask extends
         int progress = 0;
         SyncStatus syncStatus = new SyncStatus();
         mProcessMessage = new ProcessMessage(mService.getApplicationContext(),new ProcessSms(mService.getApplicationContext()));
-        Message message = new Message();
         List<Message> listMessages = new ArrayList<>();
 
         // determine if syncing by message UUID
         if (config.messageUuids != null && config.messageUuids.size() > 0) {
             for (String messageUuid : config.messageUuids) {
-                if (message.loadByUuid(messageUuid)) {
-                    listMessages.add(message.getMessageList().get(0));
-                }
+                Message msg = App.getDatabaseInstance().getMessageInstance().fetchByUuid(messageUuid);
+                listMessages.add(msg);
+
             }
 
         } else {
-            // load all messages
-            message.load();
-            listMessages = message.getMessageList();
 
+            // load all messages
+            listMessages = App.getDatabaseInstance().getMessageInstance().fetchPending();
         }
 
         if (listMessages.size() > 0) {

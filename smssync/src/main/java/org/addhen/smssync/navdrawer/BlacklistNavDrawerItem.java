@@ -17,8 +17,8 @@
 
 package org.addhen.smssync.navdrawer;
 
+import org.addhen.smssync.App;
 import org.addhen.smssync.fragments.BlacklistFragment;
-import org.addhen.smssync.models.Filter;
 
 import android.support.v7.app.ActionBarActivity;
 
@@ -46,8 +46,6 @@ public class BlacklistNavDrawerItem extends BaseNavDrawerItem {
 
     @Override
     public void setCounter() {
-        Filter filter = new Filter();
-        filter.loadByStatus(Filter.Status.BLACKLIST);
-        mCounter = filter.getFilterList().size();
+        mCounter = App.getDatabaseInstance().getFilterInstance().getBlackListTotal();
     }
 }

@@ -1,37 +1,23 @@
-/*******************************************************************************
- *  Copyright (c) 2010 - 2013 Ushahidi Inc
- *  All rights reserved
- *  Contact: team@ushahidi.com
- *  Website: http://www.ushahidi.com
- *  GNU Lesser General Public License Usage
- *  This file may be used under the terms of the GNU Lesser
- *  General Public License version 3 as published by the Free Software
- *  Foundation and appearing in the file LICENSE.LGPL included in the
- *  packaging of this file. Please review the following information to
- *  ensure the GNU Lesser General Public License version 3 requirements
- *  will be met: http://www.gnu.org/licenses/lgpl.html.
- *
+/**
+ * ****************************************************************************
+ * Copyright (c) 2010 - 2013 Ushahidi Inc
+ * All rights reserved
+ * Contact: team@ushahidi.com
+ * Website: http://www.ushahidi.com
+ * GNU Lesser General Public License Usage
+ * This file may be used under the terms of the GNU Lesser
+ * General Public License version 3 as published by the Free Software
+ * Foundation and appearing in the file LICENSE.LGPL included in the
+ * packaging of this file. Please review the following information to
+ * ensure the GNU Lesser General Public License version 3 requirements
+ * will be met: http://www.gnu.org/licenses/lgpl.html.
+ * <p/>
  * If you have questions regarding the use of this file, please contact
  * Ushahidi developers at team@ushahidi.com.
- ******************************************************************************/
+ * ****************************************************************************
+ */
 
 package org.addhen.smssync.fragments;
-
-import com.squareup.otto.Subscribe;
-
-import org.addhen.smssync.MainApplication;
-import org.addhen.smssync.prefs.Prefs;
-import org.addhen.smssync.R;
-import org.addhen.smssync.adapters.LogAdapter;
-import org.addhen.smssync.controllers.LogController;
-import org.addhen.smssync.listeners.LogListener;
-import org.addhen.smssync.models.Log;
-import org.addhen.smssync.models.PhoneStatusInfo;
-import org.addhen.smssync.state.LogEvent;
-import org.addhen.smssync.util.LogUtil;
-import org.addhen.smssync.util.Util;
-import org.addhen.smssync.views.ILogView;
-import org.addhen.smssync.views.LogView;
 
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -51,12 +37,25 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 
+import com.squareup.otto.Subscribe;
+
+import org.addhen.smssync.App;
+import org.addhen.smssync.R;
+import org.addhen.smssync.adapters.LogAdapter;
+import org.addhen.smssync.controllers.LogController;
+import org.addhen.smssync.models.Log;
+import org.addhen.smssync.models.PhoneStatusInfo;
+import org.addhen.smssync.prefs.Prefs;
+import org.addhen.smssync.state.LogEvent;
+import org.addhen.smssync.util.LogUtil;
+import org.addhen.smssync.util.Util;
+import org.addhen.smssync.views.ILogView;
+import org.addhen.smssync.views.LogView;
+
 public class LogFragment extends BaseListFragment<LogView, Log, LogAdapter> implements
-        View.OnClickListener, AdapterView.OnItemClickListener, ILogView, LogListener {
+        View.OnClickListener, AdapterView.OnItemClickListener, ILogView {
 
     private static PhoneStatusInfo info;
-
-    private String mLogFile = null;
 
     /**
      * Receiver for getting battery state.
@@ -108,7 +107,7 @@ public class LogFragment extends BaseListFragment<LogView, Log, LogAdapter> impl
     public void onResume() {
         log("onResume()");
         super.onResume();
-        MainApplication.bus.register(this);
+        App.bus.register(this);
         getActivity().registerReceiver(batteryLevelReceiver,
                 new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         loadLogs();
@@ -118,7 +117,7 @@ public class LogFragment extends BaseListFragment<LogView, Log, LogAdapter> impl
     public void onPause() {
         log("onStop()");
         super.onPause();
-        MainApplication.bus.unregister(this);
+        App.bus.unregister(this);
     }
 
     @Override
@@ -253,7 +252,7 @@ public class LogFragment extends BaseListFragment<LogView, Log, LogAdapter> impl
     private String makeShareableMessage() {
 
         // On some devices this is never initialized.
-        if(prefs == null) {
+        if (prefs == null) {
             prefs = new Prefs(getActivity());
         }
 

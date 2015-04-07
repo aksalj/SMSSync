@@ -1,10 +1,9 @@
 package org.addhen.smssync.tests.messages;
 
-import org.addhen.smssync.messages.ProcessSms;
-import org.addhen.smssync.models.Message;
-import org.addhen.smssync.tests.BaseTest;
-
 import android.test.suitebuilder.annotation.SmallTest;
+
+import org.addhen.smssync.messages.ProcessSms;
+import org.addhen.smssync.tests.BaseTest;
 
 /**
  * Test process sms
@@ -68,36 +67,5 @@ public class ProcessSmsTest extends BaseTest {
     @SmallTest
     public void testShouldGetUuid() throws Exception {
         assertNotNullOrEmpty("Could not get UUID", mProcessSms.getUuid());
-    }
-
-
-    @SmallTest
-    public void testShouldPostPendingMessageToSentInbox() throws Exception {
-        Message message = new Message();
-        message.setPhoneNumber("0243581806");
-        message.setUuid(mProcessSms.getUuid());
-        message.setTimestamp("1370831690572");
-        message.setMessage("foo bar");
-        assertTrue("Could not add a new message ", message.save());
-        assertTrue(mProcessSms.postToSentBox(message));
-        assertTrue("Could not delete the message",message.deleteAllMessages());
-
-    }
-
-    @SmallTest
-    public void testShouldPostTaskMessageToSentInbox() throws Exception {
-        Message message = new Message();
-        message.setPhoneNumber("0243581817");
-        message.setUuid(mProcessSms.getUuid());
-        message.setMessage("foo bar");
-        message.setTimestamp("1370831690572");
-        assertTrue("Could not add a new message ",message.save());
-        assertTrue(mProcessSms.postToSentBox(message));
-        assertTrue("Could not delete the message",message.deleteAllMessages());
-    }
-
-    @Override
-    public void tearDown() throws Exception {
-        super.tearDown();
     }
 }

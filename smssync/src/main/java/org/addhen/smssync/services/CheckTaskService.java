@@ -17,12 +17,15 @@
 
 package org.addhen.smssync.services;
 
+import org.addhen.smssync.App;
+import org.addhen.smssync.database.BaseDatabseHelper;
 import org.addhen.smssync.messages.ProcessMessage;
 import org.addhen.smssync.messages.ProcessSms;
 import org.addhen.smssync.models.SyncUrl;
-import org.addhen.smssync.util.ServicesConstants;
 
 import android.content.Intent;
+
+import java.util.List;
 
 /**
  * A this class handles background services for periodic checks of task that needs to be executed by
@@ -36,11 +39,8 @@ public class CheckTaskService extends SmsSyncServices {
     private final static String CLASS_TAG = CheckTaskService.class
             .getSimpleName();
 
-    private SyncUrl model;
-
     public CheckTaskService() {
         super(CLASS_TAG);
-        model = new SyncUrl();
     }
 
     /**
@@ -52,8 +52,8 @@ public class CheckTaskService extends SmsSyncServices {
         log("checkTaskService: check if a task has been enabled.");
         // Perform a task
         // get enabled Sync URL
-        for (SyncUrl syncUrl : model
-                .loadByStatus(ServicesConstants.ACTIVE_SYNC_URL)) {
+        final List<SyncUrl> result = App.getDatabaseInstance().getSyncUrlInstance().fetchSyncUrlByStatus(SyncUrl.Status.ENABLED);
+        for(SyncUrl syncUrl: result) {
             new ProcessMessage(CheckTaskService.this,new ProcessSms(CheckTaskService.this)).performTask(syncUrl);
         }
     }

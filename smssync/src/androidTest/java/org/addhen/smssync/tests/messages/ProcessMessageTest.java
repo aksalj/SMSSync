@@ -67,19 +67,7 @@ public class ProcessMessageTest extends CustomAndroidTestCase {
     }
 
     @SmallTest
-    public void testShouldSaveMessage() throws Exception {
-
-        // When save is called return true
-        when(mockMessage.save()).thenReturn(true);
-
-        final boolean status = mProcessMessage.saveMessage(mockMessage);
-
-        verify(mockMessage).save();
-        assertEquals(status, true);
-    }
-
-    @SmallTest
-    public void testshouldSendResponseFromServerAsSms() throws Exception {
+    public void testShouldSendResponseFromServerAsSms() throws Exception {
         stubNeedMethodsForSyncOperation();
 
         // Enable reply from server
@@ -90,19 +78,28 @@ public class ProcessMessageTest extends CustomAndroidTestCase {
 
     }
 
-    // Disable these test for now. Replace most of the live URL with mocked ones
+    @SmallTest
+    public void testShouldSendResponseConfiguredOnPhoneAsSms() throws Exception {
+        stubNeedMethodsForSyncOperation();
+
+        // Enable reply from server
+        spyPrefs.enableReply().set(true);
+
+        mProcessMessage.routeSms(mockMessage);
+        verify(mockProcessSms, times(1)).sendSms(mockMsg);
+    }
+
     @MediumTest
-    public void testShouldSuccessfulllySyncReceivedSmsWithNoInstantResponseFromServer()
+    public void testShouldSuccessfullySyncReceivedSmsWithNoInstantResponseFromServer()
             throws Exception {
         syncSmsToSyncUrl(false);
 
-        verify(mockProcessSms, never()).sendSms(mockMsg.getPhoneNumber(), mockMsg.getMessage(),
-                mockMsg.getUuid());
+        verify(mockProcessSms, never()).sendSms(mockMsg);
 
     }
 
     @MediumTest
-    public void testShouldSuccessfulllySyncReceivedSmsWithInstantResponseFromServer()
+    public void testShouldSuccessfullySyncReceivedSmsWithInstantResponseFromServer()
             throws Exception {
         syncSmsToSyncUrl(true);
 
@@ -110,8 +107,7 @@ public class ProcessMessageTest extends CustomAndroidTestCase {
     }
 
     private void verifySendSmsIsRun2x() {
-        verify(mockProcessSms, times(2)).sendSms(mockMsg.getPhoneNumber(), mockMsg.getMessage(),
-                mockMsg.getUuid());
+        verify(mockProcessSms, times(2)).sendSms(mockMsg);
     }
 
     private void syncSmsToSyncUrl(boolean postResponseToServer) {

@@ -17,7 +17,7 @@
 
 package org.addhen.smssync.services;
 
-import org.addhen.smssync.MainApplication;
+import org.addhen.smssync.App;
 import org.addhen.smssync.R;
 import org.addhen.smssync.activities.MainActivity;
 import org.addhen.smssync.exceptions.ConnectivityException;
@@ -74,14 +74,14 @@ public abstract class BaseService extends Service {
         if (prefs.enableLog().get()) {
             mLogUtil = new LogUtil(DateFormat.getDateFormatOrder(this));
         }
-        MainApplication.bus.register(this);
+        App.bus.register(this);
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
 
-        MainApplication.bus.unregister(this);
+        App.bus.unregister(this);
 
     }
 
@@ -157,17 +157,6 @@ public abstract class BaseService extends Service {
         return getState().isRunning();
     }
 
-    protected void createNotification(int resId, String title, PendingIntent intent) {
-        Util.buildNotification(this, R.drawable.ic_stat_notfiy, title, getString(resId),
-                intent, true);
-
-    }
-
-    protected PendingIntent getPendingIntent() {
-        return PendingIntent.getActivity(this, 0,
-                new Intent(this, MainActivity.class),
-                PendingIntent.FLAG_UPDATE_CURRENT);
-    }
 
     protected void log(String message) {
         Logger.log(getClass().getName(), message);
@@ -181,11 +170,4 @@ public abstract class BaseService extends Service {
         Logger.log(getClass().getName(), message, ex);
     }
 
-    protected void logActivities(int id, Object... args) {
-        final String msg = getString(id, args);
-        if (mLogUtil != null) {
-            mLogUtil.append(msg);
-        }
-        Logger.log(TAG, "Activity " + msg);
-    }
 }

@@ -19,7 +19,7 @@ package org.addhen.smssync.services;
 
 import com.squareup.otto.Produce;
 
-import org.addhen.smssync.MainApplication;
+import org.addhen.smssync.App;
 import org.addhen.smssync.R;
 import org.addhen.smssync.controllers.DebugCallbacks;
 import org.addhen.smssync.messages.ProcessMessage;
@@ -28,6 +28,7 @@ import org.addhen.smssync.state.LogEvent;
 import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.ServicesConstants;
 import org.addhen.smssync.util.Util;
+import static org.addhen.smssync.models.Message.Type.PENDING;
 
 import android.app.Service;
 import android.content.Context;
@@ -44,6 +45,7 @@ import android.os.Process;
 import android.telephony.SmsMessage;
 
 import java.lang.ref.WeakReference;
+import java.util.Date;
 
 public class SmsReceiverService extends Service {
 
@@ -184,7 +186,7 @@ public class SmsReceiverService extends Service {
         statusIntent = new Intent(ServicesConstants.AUTO_SYNC_ACTION);
         mServiceLooper = thread.getLooper();
         mServiceHandler = new ServiceHandler(this, mServiceLooper);
-        MainApplication.bus.register(this);
+        App.bus.register(this);
 
     }
 
@@ -200,7 +202,7 @@ public class SmsReceiverService extends Service {
     @Override
     public void onDestroy() {
         mServiceLooper.quit();
-        MainApplication.bus.unregister(this);
+        App.bus.unregister(this);
         super.onDestroy();
     }
 
@@ -234,7 +236,7 @@ public class SmsReceiverService extends Service {
 
                 // extract message details. phone number and the message body
                 msg.setPhoneNumber(sms.getOriginatingAddress());
-                msg.setTimestamp(String.valueOf(sms.getTimestampMillis()));
+                msg.setDate(new Date(sms.getTimestampMillis()));
 
                 if (messages.length == 1 || sms.isReplace()) {
                     body = sms.getDisplayMessageBody();
@@ -246,15 +248,16 @@ public class SmsReceiverService extends Service {
                     }
                     body = bodyText.toString();
                 }
-                msg.setMessage(body);
+                msg.setBody(body);
                 msg.setUuid(new ProcessSms(mContext).getUuid());
+                msg.setType(PENDING);
             }
         }
 
         log("handleSmsReceived() messagesUuid: " + messagesUuid);
         // Log received SMS
 
-        Util.logActivities(this, getString(R.string.received_msg, msg.getMessage(), msg.getPhoneNumber()));
+        Util.logActivities(this, getString(R.string.received_msg, msg.getBody(), msg.getPhoneNumber()));
 
         // route the sms
         boolean sent = mProcessMessage.routeSms(msg);
@@ -298,7 +301,7 @@ public class SmsReceiverService extends Service {
         public ServiceHandler(SmsReceiverService mSmsReceiverService,
                 Looper looper) {
             super(looper);
-            this.mSmsReceiverService = new WeakReference<SmsReceiverService>(
+            this.mSmsReceiverService = new WeakReference<>(
                     mSmsReceiverService);
         }
 

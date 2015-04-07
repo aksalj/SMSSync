@@ -17,8 +17,8 @@
 
 package org.addhen.smssync.navdrawer;
 
+import org.addhen.smssync.App;
 import org.addhen.smssync.fragments.SyncUrlFragment;
-import org.addhen.smssync.models.SyncUrl;
 
 import android.support.v7.app.ActionBarActivity;
 
@@ -46,7 +46,7 @@ public class SyncUrlNavDrawerItem extends BaseNavDrawerItem {
 
     @Override
     public void setCounter() {
-        mCounter = new SyncUrl().totalActiveSynUrl();
+        mCounter = App.getDatabaseInstance().getSyncUrlInstance().getTotal();
     }
 
 }

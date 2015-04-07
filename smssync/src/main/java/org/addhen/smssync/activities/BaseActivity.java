@@ -17,9 +17,11 @@
 
 package org.addhen.smssync.activities;
 
-import org.addhen.smssync.MainApplication;
+import org.addhen.smssync.App;
 import org.addhen.smssync.R;
+import org.addhen.smssync.UiThread;
 import org.addhen.smssync.adapters.NavDrawerAdapter;
+import org.addhen.smssync.fragments.DonationFragment;
 import org.addhen.smssync.navdrawer.BaseNavDrawerItem;
 import org.addhen.smssync.navdrawer.BlacklistNavDrawerItem;
 import org.addhen.smssync.navdrawer.DonationNavDrawerItem;
@@ -177,7 +179,7 @@ public abstract class BaseActivity<V extends View> extends ActionBarActivity {
     protected void onStart() {
         super.onStart();
         log("onStart");
-        MainApplication.getInstance().activityStart(this);
+        App.getInstance().activityStart(this);
     }
 
     @Override
@@ -208,7 +210,7 @@ public abstract class BaseActivity<V extends View> extends ActionBarActivity {
     protected void onDestroy() {
         super.onDestroy();
         log("onDestroy");
-        MainApplication.getInstance().activityStop(this);
+        App.getInstance().activityStop(this);
     }
 
     @Override
@@ -297,20 +299,10 @@ public abstract class BaseActivity<V extends View> extends ActionBarActivity {
     }
 
     private void setNavDrawerAdapterItems() {
-        final Handler handler = new Handler();
-        final Runnable runnable = new Runnable() {
-
-            @Override
-            public void run() {
-
-                navDrawerAdapter.setItems(navDrawerItem);
-                listView.setAdapter(navDrawerAdapter);
-                selectItem(mPosition);
-            }
-        };
 
         Thread thread = new Thread() {
             public void run() {
+
                 sentMessagesNavDrawerItem.setCounter();
                 pendingMessagesNavDrawerItem.setCounter();
                 syncUrlNavDrawerItem.setCounter();
@@ -320,11 +312,33 @@ public abstract class BaseActivity<V extends View> extends ActionBarActivity {
                 navDrawerItem.add(pendingMessagesNavDrawerItem);
                 navDrawerItem.add(sentMessagesNavDrawerItem);
                 navDrawerItem.add(syncUrlNavDrawerItem);
-                //navDrawerItem.add(donationNavDrawerItem);
                 navDrawerItem.add(whitelistNavDrawerItem);
                 navDrawerItem.add(filterNavDrawerItem);
                 navDrawerItem.add(logNavDrawerItem);
-                handler.post(runnable);
+                DonationFragment.checkUserHasDonated(getApplication(), new DonationFragment.DonationStatusListener() {
+                    @Override
+                    public void userDonationState(State s) {
+                        switch (s) {
+                            case NOT_AVAILABLE:
+                            case DONATED:
+                            case UNKNOWN:
+                                navDrawerItem.remove(donationNavDrawerItem);
+                                break;
+                            default:
+                                navDrawerItem.add(donationNavDrawerItem);
+                                break;
+                        }
+                        UiThread.getInstance().post(new Runnable() {
+                            @Override
+                            public void run() {
+                                navDrawerAdapter.setItems(navDrawerItem);
+                                listView.setAdapter(navDrawerAdapter);
+                                selectItem(mPosition);
+                            }
+                        });
+                    }
+                });
+
             }
         };
 

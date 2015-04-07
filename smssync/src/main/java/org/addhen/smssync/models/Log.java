@@ -43,16 +43,6 @@ public class Log extends Model {
     }
 
     @Override
-    public boolean load() {
-        return false;
-    }
-
-    @Override
-    public boolean save() {
-        return false;
-    }
-
-    @Override
     public String toString() {
         return "Log{" +
                 "message='" + message + '\'' +

@@ -18,6 +18,7 @@
 package org.addhen.smssync;
 
 import org.addhen.smssync.prefs.Prefs;
+import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.RunServicesUtil;
 import org.addhen.smssync.util.TimePreference;
 import org.addhen.smssync.util.Util;
@@ -32,12 +33,14 @@ import android.os.Handler;
 import android.os.Messenger;
 import android.preference.CheckBoxPreference;
 import android.preference.EditTextPreference;
+import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceActivity;
 import android.text.TextUtils;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * This class handles all related task for settings on SMSSync. TODO // move the UI code into it's
@@ -70,6 +73,10 @@ public class Settings extends PreferenceActivity implements
     public static final String AUTO_SYNC_TIMES = "auto_sync_times";
 
    // public static final String KEY_ENABLE_SMS_PORTALS = "enable_sms_portals";
+
+    public static final String KEY_ENABLE_RETRIES = "auto_delete_pending_messages_preference";
+
+    public static final String KEY_LIST_RETRIES  = "auto_delete_pending_messages_retries_preference";
 
     public static final String TASK_CHECK = "task_check_preference";
 
@@ -144,7 +151,6 @@ public class Settings extends PreferenceActivity implements
                 // Initialize the selected time to frequently sync pending
                 // messages
                 autoSyncTimes.setEnabled(true);
-
                 runServicesUtil.runAutoSyncService();
             }
         }
@@ -172,7 +178,9 @@ public class Settings extends PreferenceActivity implements
 
     private CheckBoxPreference enableMessageResultsAPI;
 
+    private ListPreference retry;
 
+    private CheckBoxPreference enableRetry;
 
     private TimePreference taskCheckTimes;
 
@@ -262,10 +270,14 @@ public class Settings extends PreferenceActivity implements
         /*useSmsPortals = (CheckBoxPreference) getPreferenceScreen()
                 .findPreference(KEY_ENABLE_SMS_PORTALS);*/
 
+        enableRetry  = (CheckBoxPreference) getPreferenceScreen().findPreference(KEY_ENABLE_RETRIES);
+
+        retry = (ListPreference) getPreferenceScreen().findPreference(KEY_LIST_RETRIES);
+
         enableMessageResultsAPI = (CheckBoxPreference) getPreferenceScreen().findPreference(
                 MESSAGE_RESULTS_API);
 
-        about = (Preference) getPreferenceScreen().findPreference(ABOUT);
+        about = getPreferenceScreen().findPreference(ABOUT);
 
         about.setTitle(versionLabel.toString());
         about.setSummary(R.string.powered_by);
@@ -331,7 +343,13 @@ public class Settings extends PreferenceActivity implements
             enableMessageResultsAPI.setEnabled(false);
         }
 
-        prefs.reply().set(replyPref.getText().toString());
+        if(enableRetry.isChecked()) {
+            retry.setEnabled(true);
+        } else {
+            retry.setEnabled(false);
+        }
+
+
         // log reply changes.
         if (!prefs.reply().get().equals(replyPref.getText().toString())) {
             // Log old value and new value.
@@ -339,7 +357,7 @@ public class Settings extends PreferenceActivity implements
                     replyPref.getDialogTitle().toString(), prefs.reply().get(),
                     replyPref.getText().toString()));
         }
-        prefs.autoDelete().set(enableAutoDelete.isChecked());
+        prefs.reply().set(replyPref.getText().toString());
 
         if (prefs.autoDelete().get() != enableAutoDelete.isChecked()) {
             boolean checked = enableAutoDelete.isChecked() ? true : false;
@@ -351,8 +369,7 @@ public class Settings extends PreferenceActivity implements
                     enableAutoDelete.getTitle().toString(), status,
                     check));
         }
-
-        prefs.smsReportDelivery().set(enableSmsReportDelivery.isChecked());
+        prefs.autoDelete().set(enableAutoDelete.isChecked());
 
         if (prefs.smsReportDelivery().get() != enableSmsReportDelivery.isChecked()) {
             boolean checked = enableSmsReportDelivery.isChecked() ? true : false;
@@ -364,8 +381,8 @@ public class Settings extends PreferenceActivity implements
                     enableSmsReportDelivery.getTitle().toString(), status,
                     check));
         }
+        prefs.smsReportDelivery().set(enableSmsReportDelivery.isChecked());
 
-        prefs.enableReply().set(enableReply.isChecked());
         if (prefs.enableReply().get() != enableReply.isChecked()) {
             boolean checked = enableReply.isChecked() ? true : false;
             String check = getCheckedStatus(checked);
@@ -376,8 +393,8 @@ public class Settings extends PreferenceActivity implements
                     enableReply.getTitle().toString(), status,
                     check));
         }
+        prefs.enableReply().set(enableReply.isChecked());
 
-        prefs.enableReplyFrmServer().set(enableReplyFrmServer.isChecked());
         if (prefs.enableReplyFrmServer().get() != enableReplyFrmServer.isChecked()) {
             boolean checked = enableReplyFrmServer.isChecked() ? true : false;
             String check = getCheckedStatus(checked);
@@ -388,8 +405,8 @@ public class Settings extends PreferenceActivity implements
                     enableReplyFrmServer.getTitle().toString(), status,
                     check));
         }
+        prefs.enableReplyFrmServer().set(enableReplyFrmServer.isChecked());
 
-        prefs.enableTaskCheck().set(taskCheck.isChecked());
         if (prefs.enableTaskCheck().get() != taskCheck.isChecked()) {
             boolean checked = taskCheck.isChecked() ? true : false;
             String check = getCheckedStatus(checked);
@@ -400,8 +417,8 @@ public class Settings extends PreferenceActivity implements
                     taskCheck.getTitle().toString(), status,
                     check));
         }
+        prefs.enableTaskCheck().set(taskCheck.isChecked());
 
-        prefs.enableAutoSync().set(autoSync.isChecked());
         if (prefs.enableAutoSync().get() != autoSync.isChecked()) {
             boolean checked = autoSync.isChecked() ? true : false;
             String check = getCheckedStatus(checked);
@@ -412,12 +429,37 @@ public class Settings extends PreferenceActivity implements
                     autoSync.getTitle().toString(), status,
                     check));
         }
+        prefs.enableAutoSync().set(autoSync.isChecked());
 
-        prefs.autoTime().set(autoSyncTimes.getTimeValueAsString());
         if (!prefs.autoTime().get().equals(autoSyncTimes.getTimeValueAsString())) {
             Util.logActivities(this, getString(R.string.settings_changed,
                     autoSyncTimes.getTitle().toString(),
                     prefs.autoTime().get(), autoSyncTimes.getTimeValueAsString()));
+        }
+        prefs.autoTime().set(autoSyncTimes.getTimeValueAsString());
+
+        // Enable or Disable Pending messages delete retries.
+        if(prefs.enableRetry().get() != enableRetry.isChecked()) {
+            boolean checked = enableRetry.isChecked() ? true : false;
+
+            String check = getCheckedStatus(checked);
+
+            String status = getCheckedStatus(prefs.enableRetry().get());
+
+            Util.logActivities(Settings.this, getString(R.string.settings_changed,
+                    enableRetry.getTitle().toString(), status,
+                    check));
+        }
+        prefs.enableRetry().set(enableRetry.isChecked());
+
+        for(int i = 0; i < retry.getEntryValues().length; i++) {
+            if(retry.getEntry() !=null ) {
+                if (retry.getValue()
+                        .matches(getResources().getStringArray(R.array.retry_entries)[i])) {
+                    prefs.retries().set(getResources().getIntArray(R.array.retry_values)[i]);
+                    break;
+                }
+            }
         }
 
         /*
@@ -433,41 +475,45 @@ public class Settings extends PreferenceActivity implements
                     check));
         }*/
 
-        prefs.taskCheckTime().set(taskCheckTimes.getTimeValueAsString());
+
         if (!prefs.taskCheckTime().get().equals(taskCheckTimes.getTimeValueAsString())) {
             Util.logActivities(this, getString(R.string.settings_changed,
                     taskCheckTimes.getTitle().toString(),
                     prefs.taskCheckTime().get(), taskCheckTimes.getTimeValueAsString()));
         }
+        prefs.taskCheckTime().set(taskCheckTimes.getTimeValueAsString());
 
         if (!TextUtils.isEmpty(uniqueId.getText())) {
             String id = Util.removeWhitespaces(uniqueId.getText());
-            prefs.uniqueId().set(id);
+
             if (!prefs.uniqueId().get().equals(uniqueId.getText())) {
                 Util.logActivities(this,
                         getString(R.string.settings_changed, uniqueId.getTitle(),
                                 prefs.uniqueId().get(), id)
                 );
             }
+            prefs.uniqueId().set(id);
         } else {
-            prefs.uniqueId().set("");
+
             if (!prefs.uniqueId().get().equals("")) {
                 Util.logActivities(this,
                         getString(R.string.settings_changed, uniqueId.getTitle(),
                                 prefs.uniqueId().get(), "")
                 );
             }
+            prefs.uniqueId().set("");
         }
 
         if (!TextUtils.isEmpty(alertPhoneNumber.getText())) {
             String number = Util.removeWhitespaces(alertPhoneNumber.getText());
-            prefs.alertPhoneNumber().set(number);
+
             if (!prefs.alertPhoneNumber().get().equals(alertPhoneNumber.getText())) {
                 Util.logActivities(this,
                         getString(R.string.settings_changed, alertPhoneNumber.getTitle().toString(),
                                 prefs.alertPhoneNumber().get(), number)
                 );
             }
+            prefs.alertPhoneNumber().set(number);
         } else {
             if (prefs.alertPhoneNumber().get() != null) {
                 Util.logActivities(this,
@@ -477,7 +523,7 @@ public class Settings extends PreferenceActivity implements
             }
         }
 
-        prefs.messageResultsAPIEnable().set(enableMessageResultsAPI.isChecked());
+
         if (prefs.messageResultsAPIEnable().get() != enableMessageResultsAPI.isChecked()) {
             boolean checked = enableMessageResultsAPI.isChecked() ? true : false;
             String check = getCheckedStatus(checked);
@@ -488,6 +534,7 @@ public class Settings extends PreferenceActivity implements
                     enableMessageResultsAPI.getTitle().toString(), status,
                     check));
         }
+        prefs.messageResultsAPIEnable().set(enableMessageResultsAPI.isChecked());
     }
 
     @Override
@@ -532,6 +579,7 @@ public class Settings extends PreferenceActivity implements
                 replyPref.setEnabled(false);
             }
         }
+
 
         // Auto sync enable
         if (key.equals(AUTO_SYNC)) {
@@ -594,12 +642,31 @@ public class Settings extends PreferenceActivity implements
             runServicesUtil.runCheckTaskService();
         }
 
+        // Enable SMS delivery report
+        if (key.equals(KEY_ENABLE_SMS_REPORT_DELIVERY)) {
+            if(sharedPreferences.getBoolean(KEY_ENABLE_SMS_REPORT_DELIVERY, false)) {
+                enableSmsReportDelivery.setChecked(true);
+            } else {
+                if (!enableSmsReportDelivery.isChecked() && enableMessageResultsAPI.isChecked()) {
+                    enableSmsReportDelivery.setChecked(true);
+                    Util.showToast(Settings.this, R.string.validate_message_result_api);
+                }else {
+                    enableSmsReportDelivery.setChecked(false);
+                }
+            }
+        }
+
         // Enable message result checking
         if (key.equals(MESSAGE_RESULTS_API)) {
-            if (sharedPreferences.getBoolean(MESSAGE_RESULTS_API, false)) {
-                messageResultsAPIEnable();
+            if(!enableSmsReportDelivery.isChecked()) {
+                enableMessageResultsAPI.setChecked(false);
+                Util.showToast(Settings.this, R.string.validate_sms_delivery_report_status);
             } else {
-                runServicesUtil.stopMessageResultsService();
+                if (sharedPreferences.getBoolean(MESSAGE_RESULTS_API, false)) {
+                    messageResultsAPIEnable();
+                } else {
+                    runServicesUtil.stopMessageResultsService();
+                }
             }
         }
         this.savePreferences();
@@ -625,6 +692,7 @@ public class Settings extends PreferenceActivity implements
 
         Thread t = new Thread() {
             public void run() {
+
                 mHandler.post(mAutoSyncEnabled);
             }
         };

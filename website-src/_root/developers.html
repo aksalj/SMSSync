@@ -2,7 +2,7 @@
 title : Developers
 layout : default
 description : SMSsync developer documentation
-date : Jan 12, 2015
+date : Mar 23, 2015
 header : <h1>Developers Documentation <small>This shows how to integrate SMSsync into your project.</small></h1>
 ---
 <div class="row">
@@ -191,7 +191,7 @@ Content-Type: application/json; charset=utf-8
 }</pre>
 <p>Next, the server needs to process the JSON response sent by SMSsync. It needs to remove all the message UUIDs sent by SMSsync from
 the subsequent outgoing messages list so SMSsync avoids processing those again. Once the server receives the UUIDs of the queued up messages, it needs to send a response
-back to SMSsync as JSON response with the received messages UUIDs as JSON array. If there are no received messages UUIDs, it needs to send back an empty JSON array to SMSsync</p>
+back to SMSsync as JSON response with the received messages UUIDs as JSON array. If there are no received messages UUIDs, it needs to send back an empty message_uuids JSON array to SMSsync</p>
 <pre class="prettyprint linenums">
 POST /smssync?task=sent HTTP/1.1
 Host: testserver.local
@@ -204,6 +204,16 @@ Content-Type: application/json; charset=utf-8
         "1ba368bd-c467-4374-bf28",
         "95df126b-ee80-4175-a6fb"
     ]
+}</pre>
+<p>Sample empty message uuids JSON response.</p>
+<pre class="prettyprint linenums">
+POST /smssync?task=sent HTTP/1.1
+Host: testserver.local
+
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+{
+    "message_uuids": []
 }</pre>
 <p>To send SMS status delivery report back to the server, SMSsync will make a <code>GET ?task=result</code> to the server and should receive a list
 of message UUIDs that are waiting to receive delivery reports. The server should send the JSON response below</p>
@@ -227,7 +237,7 @@ Host: testserver.local
 Content-Type: application/json; charset=utf-8
 
 {
-    "message_results": [
+    "message_result": [
         {
             "uuid": "052bf515-ef6b-f424-c4ee",
             "sent_result_code": 0,
@@ -426,7 +436,7 @@ function send_task()
     if (isset($_GET['task']) AND $_GET['task'] === 'send')
     {
         $m = "Sample Task Message";
-        $f = "+819029842384";
+        $f = "+000-000-0000";
         $s = "true";
         $reply[0] = [
             "to" => $f,
@@ -456,7 +466,7 @@ function send_instant_message($to)
 {
 
     $m = "Your message has been received";
-    $f = "09029842384";
+    $f = "+000-000-0000";
     $s = true;
 
     $reply[0] = [
@@ -474,7 +484,7 @@ function send_instant_message($to)
             "messages"=>array_values($reply)]
         ]);
 
-    send_response($response);
+    send_response($response);09048370465
 }
 
 function send_response($response)
@@ -575,7 +585,7 @@ else
 </p>
 <pre class="prettyprint linenums">
     $ curl -D - -X POST http://localhost/demo.php \
-        -F "from=09048370465" \
+        -F "from=+000-000-0000" \
         -F "message=sample text message" \
         -F "secret=123456" \
         -F "device_id=1" \

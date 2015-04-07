@@ -1,5 +1,43 @@
 [
     {
+        "version": "v2.8.0-alpha.3",
+        "date": "Mar 25, 2015",
+        "features": [
+            "Style ActionMode background to accommodate changes in the new theme."
+        ],
+        "bugs": [
+            "Fix logs not propagating.",
+            "Fix Sync URL list view to reload when a new Sync URL is added.",
+            "Fix alert debug crashing when the app receives a key code."
+        ]
+    },
+    {
+        "version": "v2.8.0-alpha.2",
+        "date": "March 23, 2015",
+        "features": [
+            "Add Japanese German and Indonesian translations"
+        ],
+        "bugs": [
+            "Fix inconsistency with message result API codes.",
+            "Fix issue with sync to only one Sync URL even though multiple have been enabled.",
+            "Disable proguard minification"
+        ]
+    },
+    {
+        "version": "v2.8.0-alpha.1",
+        "date": "March 23, 2015",
+        "features": [
+            "Add Android 5.1 support.",
+            "Enable auto delete of pending of message after a configured number of retry is exceed.",
+            "Brought back HTTP client support for devices running Android v2.2.",
+            "Re-activate donation button."
+        ],
+        "bugs": [
+            "Fix inconsistency with message result API codes.",
+            "Fix issue with sync to only one Sync URL even though multiple have been enabled."
+        ]
+    },
+    {
         "version": "v2.7.3",
         "date": "January 12, 2015",
         "features": [

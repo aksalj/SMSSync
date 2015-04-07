@@ -24,6 +24,7 @@ import org.addhen.smssync.services.ScheduleServices;
 import org.addhen.smssync.services.SmsSyncServices;
 import org.addhen.smssync.services.SyncPendingMessagesService;
 import org.addhen.smssync.tasks.SyncType;
+import org.addhen.smssync.util.RunServicesUtil;
 import org.addhen.smssync.util.ServicesConstants;
 import org.addhen.smssync.util.TimeFrequencyUtil;
 import org.addhen.smssync.util.Util;
@@ -32,6 +33,8 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+
+import java.util.ArrayList;
 
 /**
  * This Receiver class listens for system boot. If smssync has been enabled run the app.
@@ -62,8 +65,8 @@ public class BootReceiver extends BroadcastReceiver {
                     Intent syncPendingMessagesServiceIntent = new Intent(context,
                             SyncPendingMessagesService.class);
 
-                    syncPendingMessagesServiceIntent.putExtra(
-                            ServicesConstants.MESSAGE_UUID, "");
+                    syncPendingMessagesServiceIntent.putStringArrayListExtra(
+                            ServicesConstants.MESSAGE_UUID, new ArrayList<String>());
                     syncPendingMessagesServiceIntent.putExtra(SyncType.EXTRA,
                             SyncType.MANUAL.name());
                     context.startService(syncPendingMessagesServiceIntent);
@@ -80,7 +83,7 @@ public class BootReceiver extends BroadcastReceiver {
 
                 // Check for tasks now that we have connectivity
                 if (prefs.enableTaskCheck().get()) {
-                    SmsSyncServices.sendWakefulTask(context,
+                    SmsSyncServices.sendWakefulWork(context,
                             CheckTaskService.class);
 
                     // start the scheduler for 'task check' service
@@ -92,6 +95,9 @@ public class BootReceiver extends BroadcastReceiver {
                             PendingIntent.FLAG_UPDATE_CURRENT)
                             .updateScheduler(interval);
                 }
+
+                // Start the service message results api service
+                new RunServicesUtil(prefs).runMessageResultsService();
             }
         }
     }

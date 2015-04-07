@@ -1,16 +1,16 @@
 package org.addhen.smssync.receivers;
 
-import org.addhen.smssync.MainApplication;
+import org.addhen.smssync.App;
 import org.addhen.smssync.R;
+import org.addhen.smssync.database.BaseDatabseHelper;
 import org.addhen.smssync.models.Message;
+import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.ServicesConstants;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-
-import static org.addhen.smssync.messages.ProcessSms.TASK;
 
 /**
  * Created by Tomasz Stalka(tstalka@soldevelo.com) on 5/5/14.
@@ -38,12 +38,25 @@ public class SmsDeliveredReceiver extends BaseBroadcastReceiver {
                 break;
         }
 
+
         if (message != null) {
             message.setDeliveryResultMessage(resultMessage);
             message.setDeliveryResultCode(result);
-            message.setMessageType(TASK);
-            MainApplication.mDb
-                    .updateDeliveryResult(message);//update type, delivery result msg and code
+            message.setType(Message.Type.TASK);
+            message.setStatus(Message.Status.SENT);
+            App.getDatabaseInstance().getMessageInstance().updateDeliveryFields(message,
+                    new BaseDatabseHelper.DatabaseCallback<Void>() {
+                        @Override
+                        public void onFinished(Void result) {
+
+                        }
+
+                        @Override
+                        public void onError(Exception exception) {
+
+                        }
+                    });
+
         }
     }
 

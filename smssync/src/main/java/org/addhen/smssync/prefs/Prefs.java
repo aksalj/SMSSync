@@ -69,6 +69,15 @@ public class Prefs {
                 TimeFrequencyUtil.DEFAULT_TIME_FREQUENCY);
     }
 
+    public BooleanPreference enableRetry() {
+        return new BooleanPreference(sharedPreferences, "EnableRetry",
+                false);
+    }
+
+    public IntPreference retries() {
+        return new IntPreference(sharedPreferences, "Retries", 3);
+    }
+
     public StringPreference uniqueId() {
         return new StringPreference(sharedPreferences, "UniqueId", "");
     }
@@ -108,10 +117,6 @@ public class Prefs {
 
     public BooleanPreference messageResultsAPIEnable() {
         return new BooleanPreference(sharedPreferences, "MessageResultsAPIEnable", false);
-    }
-
-    public StringPreference keyword() {
-        return  new StringPreference(sharedPreferences, "Keyword", "");
     }
 
     public Context getContext() {
