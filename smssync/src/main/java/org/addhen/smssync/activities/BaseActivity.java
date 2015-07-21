@@ -1,19 +1,19 @@
-/*******************************************************************************
- *  Copyright (c) 2010 - 2013 Ushahidi Inc
- *  All rights reserved
- *  Contact: team@ushahidi.com
- *  Website: http://www.ushahidi.com
- *  GNU Lesser General Public License Usage
- *  This file may be used under the terms of the GNU Lesser
- *  General Public License version 3 as published by the Free Software
- *  Foundation and appearing in the file LICENSE.LGPL included in the
- *  packaging of this file. Please review the following information to
- *  ensure the GNU Lesser General Public License version 3 requirements
- *  will be met: http://www.gnu.org/licenses/lgpl.html.
+/*
+ * Copyright (c) 2010 - 2015 Ushahidi Inc
+ * All rights reserved
+ * Contact: team@ushahidi.com
+ * Website: http://www.ushahidi.com
+ * GNU Lesser General Public License Usage
+ * This file may be used under the terms of the GNU Lesser
+ * General Public License version 3 as published by the Free Software
+ * Foundation and appearing in the file LICENSE.LGPL included in the
+ * packaging of this file. Please review the following information to
+ * ensure the GNU Lesser General Public License version 3 requirements
+ * will be met: http://www.gnu.org/licenses/lgpl.html.
  *
  * If you have questions regarding the use of this file, please contact
  * Ushahidi developers at team@ushahidi.com.
- ******************************************************************************/
+ */
 
 package org.addhen.smssync.activities;
 
@@ -41,7 +41,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v4.app.ActionBarDrawerToggle;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
@@ -262,11 +261,6 @@ public abstract class BaseActivity<V extends View> extends ActionBarActivity {
         return super.onContextItemSelected(item);
     }
 
-    public void openActivityOrFragment(Intent intent) {
-        // Default implementation simply calls startActivity
-        startActivity(intent);
-    }
-
     private void initNavDrawerMenuItems() {
         pendingMessagesNavDrawerItem
                 = new PendingMessagesNavDrawerItem(
@@ -299,6 +293,16 @@ public abstract class BaseActivity<V extends View> extends ActionBarActivity {
     }
 
     private void setNavDrawerAdapterItems() {
+        navDrawerItem.clear();
+        navDrawerItem.add(pendingMessagesNavDrawerItem);
+        navDrawerItem.add(sentMessagesNavDrawerItem);
+        navDrawerItem.add(syncUrlNavDrawerItem);
+        navDrawerItem.add(whitelistNavDrawerItem);
+        navDrawerItem.add(filterNavDrawerItem);
+        navDrawerItem.add(logNavDrawerItem);
+        navDrawerAdapter.setItems(navDrawerItem);
+        listView.setAdapter(navDrawerAdapter);
+        selectItem(mPosition);
 
         Thread thread = new Thread() {
             public void run() {
@@ -308,36 +312,35 @@ public abstract class BaseActivity<V extends View> extends ActionBarActivity {
                 syncUrlNavDrawerItem.setCounter();
                 filterNavDrawerItem.setCounter();
                 whitelistNavDrawerItem.setCounter();
-                navDrawerItem.clear();
-                navDrawerItem.add(pendingMessagesNavDrawerItem);
-                navDrawerItem.add(sentMessagesNavDrawerItem);
-                navDrawerItem.add(syncUrlNavDrawerItem);
-                navDrawerItem.add(whitelistNavDrawerItem);
-                navDrawerItem.add(filterNavDrawerItem);
-                navDrawerItem.add(logNavDrawerItem);
-                DonationFragment.checkUserHasDonated(getApplication(), new DonationFragment.DonationStatusListener() {
+                UiThread.getInstance().post(new Runnable() {
                     @Override
-                    public void userDonationState(State s) {
-                        switch (s) {
-                            case NOT_AVAILABLE:
-                            case DONATED:
-                            case UNKNOWN:
-                                navDrawerItem.remove(donationNavDrawerItem);
-                                break;
-                            default:
-                                navDrawerItem.add(donationNavDrawerItem);
-                                break;
-                        }
-                        UiThread.getInstance().post(new Runnable() {
-                            @Override
-                            public void run() {
-                                navDrawerAdapter.setItems(navDrawerItem);
-                                listView.setAdapter(navDrawerAdapter);
-                                selectItem(mPosition);
-                            }
-                        });
+                    public void run() {
+                        navDrawerAdapter.notifyDataSetChanged();
                     }
                 });
+
+                DonationFragment.checkUserHasDonated(getApplication(),
+                        new DonationFragment.DonationStatusListener() {
+                            @Override
+                            public void userDonationState(State s) {
+                                switch (s) {
+                                    case NOT_AVAILABLE:
+                                    case DONATED:
+                                    case UNKNOWN:
+                                        navDrawerItem.remove(donationNavDrawerItem);
+                                        break;
+                                    default:
+                                        navDrawerItem.add(donationNavDrawerItem);
+                                        break;
+                                }
+                                UiThread.getInstance().post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        navDrawerAdapter.notifyDataSetChanged();
+                                    }
+                                });
+                            }
+                        });
 
             }
         };
@@ -455,23 +458,6 @@ public abstract class BaseActivity<V extends View> extends ActionBarActivity {
 
     protected void toastLong(CharSequence message) {
         Toast.makeText(this, message.toString(), Toast.LENGTH_LONG).show();
-    }
-
-    protected void toastShort(String message) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-    }
-
-    protected void toastShort(String format, Object... args) {
-        Toast.makeText(this, String.format(format, args), Toast.LENGTH_SHORT)
-                .show();
-    }
-
-    protected void toastShort(int message) {
-        Toast.makeText(this, getText(message), Toast.LENGTH_SHORT).show();
-    }
-
-    protected void toastShort(CharSequence message) {
-        Toast.makeText(this, message.toString(), Toast.LENGTH_SHORT).show();
     }
 
     protected void logActivities(String message) {

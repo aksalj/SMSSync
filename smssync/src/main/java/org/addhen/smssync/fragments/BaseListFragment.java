@@ -1,27 +1,27 @@
-/*******************************************************************************
- *  Copyright (c) 2010 - 2013 Ushahidi Inc
- *  All rights reserved
- *  Contact: team@ushahidi.com
- *  Website: http://www.ushahidi.com
- *  GNU Lesser General Public License Usage
- *  This file may be used under the terms of the GNU Lesser
- *  General Public License version 3 as published by the Free Software
- *  Foundation and appearing in the file LICENSE.LGPL included in the
- *  packaging of this file. Please review the following information to
- *  ensure the GNU Lesser General Public License version 3 requirements
- *  will be met: http://www.gnu.org/licenses/lgpl.html.
+/*
+ * Copyright (c) 2010 - 2015 Ushahidi Inc
+ * All rights reserved
+ * Contact: team@ushahidi.com
+ * Website: http://www.ushahidi.com
+ * GNU Lesser General Public License Usage
+ * This file may be used under the terms of the GNU Lesser
+ * General Public License version 3 as published by the Free Software
+ * Foundation and appearing in the file LICENSE.LGPL included in the
+ * packaging of this file. Please review the following information to
+ * ensure the GNU Lesser General Public License version 3 requirements
+ * will be met: http://www.gnu.org/licenses/lgpl.html.
  *
  * If you have questions regarding the use of this file, please contact
  * Ushahidi developers at team@ushahidi.com.
- ******************************************************************************/
+ */
 
 package org.addhen.smssync.fragments;
 
 
 import org.addhen.smssync.App;
-import org.addhen.smssync.prefs.Prefs;
 import org.addhen.smssync.adapters.BaseListAdapter;
 import org.addhen.smssync.models.Model;
+import org.addhen.smssync.prefs.Prefs;
 import org.addhen.smssync.util.LogUtil;
 import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.Objects;
@@ -188,7 +188,6 @@ public abstract class BaseListFragment<V extends View, M extends Model, L extend
     }
 
     protected void log(String message, Exception ex) {
-
         Logger.log(getClass().getName(), message, ex);
     }
 
@@ -198,16 +197,6 @@ public abstract class BaseListFragment<V extends View, M extends Model, L extend
 
     protected void toastLong(int message) {
         Toast.makeText(this.getActivity(), getText(message), Toast.LENGTH_LONG)
-                .show();
-    }
-
-    protected void toastShort(int message) {
-        Toast.makeText(this.getActivity(), getText(message), Toast.LENGTH_SHORT)
-                .show();
-    }
-
-    protected void toastShort(CharSequence message) {
-        Toast.makeText(this.getActivity(), message.toString(), Toast.LENGTH_SHORT)
                 .show();
     }
 

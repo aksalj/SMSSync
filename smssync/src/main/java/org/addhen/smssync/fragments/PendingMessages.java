@@ -1,19 +1,19 @@
-/*******************************************************************************
- *  Copyright (c) 2010 - 2013 Ushahidi Inc
- *  All rights reserved
- *  Contact: team@ushahidi.com
- *  Website: http://www.ushahidi.com
- *  GNU Lesser General Public License Usage
- *  This file may be used under the terms of the GNU Lesser
- *  General Public License version 3 as published by the Free Software
- *  Foundation and appearing in the file LICENSE.LGPL included in the
- *  packaging of this file. Please review the following information to
- *  ensure the GNU Lesser General Public License version 3 requirements
- *  will be met: http://www.gnu.org/licenses/lgpl.html.
+/*
+ * Copyright (c) 2010 - 2015 Ushahidi Inc
+ * All rights reserved
+ * Contact: team@ushahidi.com
+ * Website: http://www.ushahidi.com
+ * GNU Lesser General Public License Usage
+ * This file may be used under the terms of the GNU Lesser
+ * General Public License version 3 as published by the Free Software
+ * Foundation and appearing in the file LICENSE.LGPL included in the
+ * packaging of this file. Please review the following information to
+ * ensure the GNU Lesser General Public License version 3 requirements
+ * will be met: http://www.gnu.org/licenses/lgpl.html.
  *
  * If you have questions regarding the use of this file, please contact
  * Ushahidi developers at team@ushahidi.com.
- ******************************************************************************/
+ */
 
 package org.addhen.smssync.fragments;
 
@@ -25,10 +25,11 @@ import org.addhen.smssync.SyncDate;
 import org.addhen.smssync.UiThread;
 import org.addhen.smssync.adapters.PendingMessagesAdapter;
 import org.addhen.smssync.database.BaseDatabseHelper;
-import org.addhen.smssync.models.Message;
 import org.addhen.smssync.listeners.PendingMessagesActionModeListener;
 import org.addhen.smssync.messages.ProcessSms;
+import org.addhen.smssync.models.Message;
 import org.addhen.smssync.services.SyncPendingMessagesService;
+import org.addhen.smssync.state.ReloadMessagesEvent;
 import org.addhen.smssync.tasks.ProgressTask;
 import org.addhen.smssync.tasks.SyncType;
 import org.addhen.smssync.tasks.TaskCanceled;
@@ -60,6 +61,8 @@ public class PendingMessages
         extends
         BaseListFragment<PendingMessagesView, Message, PendingMessagesAdapter> implements
         android.view.View.OnClickListener {
+
+    public static final int PENDING_MESSAGES_INTENT_FLAG = 4;
 
     private static final String STATE_CHECKED = "org.addhen.smssync.fragments.STATE_CHECKED";
 
@@ -116,7 +119,6 @@ public class PendingMessages
             }
         }
         view.sync.setOnClickListener(this);
-        App.bus.register(this);
         getActivity().registerReceiver(failedReceiver,
                 new IntentFilter(ServicesConstants.FAILED_ACTION));
     }
@@ -132,6 +134,7 @@ public class PendingMessages
     public void onResume() {
         log("onResume()");
         super.onResume();
+        App.bus.register(this);
         idle();
         loadingTask();
     }
@@ -146,7 +149,7 @@ public class PendingMessages
     public void onPause() {
         log("onPause()");
         super.onPause();
-
+        App.bus.unregister(this);
     }
 
     @Override
@@ -154,7 +157,7 @@ public class PendingMessages
         log("onDestroy()");
         super.onDestroy();
         getActivity().unregisterReceiver(failedReceiver);
-        App.bus.unregister(this);
+
     }
 
     private void idle() {
@@ -193,6 +196,7 @@ public class PendingMessages
     private void initSync() {
         log("syncMessages messagesUuid: ");
         ArrayList<String> messagesUuids = new ArrayList<>();
+
         if (mSelectedItemsPositions != null && mSelectedItemsPositions.size() > 0) {
             for (Integer position : mSelectedItemsPositions) {
                 messagesUuids.add(adapter.getItem(position).getUuid());
@@ -206,6 +210,7 @@ public class PendingMessages
                 ServicesConstants.MESSAGE_UUID, messagesUuids);
         syncPendingMessagesServiceIntent.putExtra(SyncType.EXTRA,
                 SyncType.MANUAL.name());
+        syncPendingMessagesServiceIntent.addFlags(PENDING_MESSAGES_INTENT_FLAG);
         getActivity().startService(syncPendingMessagesServiceIntent);
 
     }
@@ -453,10 +458,48 @@ public class PendingMessages
         view.sync.setText(R.string.sync);
     }
 
+    public void loadingTask() {
+        view.emptyView.setVisibility(android.view.View.GONE);
+        fetchMessages();
+    }
+
+    private void fetchMessages() {
+        App.getDatabaseInstance().getMessageInstance()
+                .fetchPending(new BaseDatabseHelper.DatabaseCallback<List<Message>>() {
+                    @Override
+                    public void onFinished(final List<Message> result) {
+                        if (result != null) {
+                            UiThread.getInstance().post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    view.listLoadingProgress.setVisibility(android.view.View.GONE);
+                                    view.emptyView.setVisibility(View.VISIBLE);
+                                    adapter.setItems(result);
+                                    listView.setAdapter(adapter);
+                                }
+                            });
+                        } else {
+                            toastLong("No pending messages");
+                        }
+
+                    }
+
+                    @Override
+                    public void onError(Exception exception) {
+
+                    }
+                });
+    }
+
+    @Subscribe
+    public void reloadMessages(final ReloadMessagesEvent event) {
+        loadingTask();
+    }
+
     // Thread class to handle synchronous execution of message importation task.
     private class ImportMessagesTask extends ProgressTask {
 
-        protected Integer status;
+        protected Boolean status;
 
         protected Context appContext;
 
@@ -468,27 +511,22 @@ public class PendingMessages
         @Override
         protected Boolean doInBackground(String... args) {
 
-             status = new ProcessSms(appContext).importMessages();
+            status = new ProcessSms(appContext).importMessages();
 
-            return true;
+            return status;
         }
 
         @Override
         protected void onPostExecute(Boolean success) {
             super.onPostExecute(success);
             if (success) {
-                if (status == 0) {
+                if (status) {
                     fetchMessages();
-                } else if (status == 1) {
+                } else {
                     toastLong(R.string.nothing_to_import);
                 }
             }
         }
-    }
-
-    public void loadingTask() {
-        view.emptyView.setVisibility(android.view.View.GONE);
-        fetchMessages();
     }
 
     protected class DeleteTask extends ProgressTask {
@@ -519,31 +557,34 @@ public class PendingMessages
                 if (deletebyUuid) {
 
                     for (Integer position : mSelectedItemsPositions) {
-                        App.getDatabaseInstance().getMessageInstance().fetchByUuid(adapter.getItem(position).getUuid(), new BaseDatabseHelper.DatabaseCallback<Message>() {
-                            @Override
-                            public void onFinished(Message result) {
-                                // Do nothing
-                            }
+                        App.getDatabaseInstance().getMessageInstance()
+                                .fetchByUuid(adapter.getItem(position).getUuid(),
+                                        new BaseDatabseHelper.DatabaseCallback<Message>() {
+                                            @Override
+                                            public void onFinished(Message result) {
+                                                // Do nothing
+                                            }
 
-                            @Override
-                            public void onError(Exception exception) {
-                                // Do nothing
-                            }
-                        });
+                                            @Override
+                                            public void onError(Exception exception) {
+                                                // Do nothing
+                                            }
+                                        });
 
                     }
                 } else {
-                    App.getDatabaseInstance().getMessageInstance().deleteAll(new BaseDatabseHelper.DatabaseCallback<Void>() {
-                        @Override
-                        public void onFinished(Void result) {
-                            // Do nothing
-                        }
+                    App.getDatabaseInstance().getMessageInstance()
+                            .deleteAll(new BaseDatabseHelper.DatabaseCallback<Void>() {
+                                @Override
+                                public void onFinished(Void result) {
+                                    // Do nothing
+                                }
 
-                        @Override
-                        public void onError(Exception exception) {
-                            //Do nothing
-                        }
-                    });
+                                @Override
+                                public void onError(Exception exception) {
+                                    //Do nothing
+                                }
+                            });
                 }
                 deleted = 2;
             }
@@ -575,33 +616,6 @@ public class PendingMessages
 
             }
         }
-    }
-
-    private void fetchMessages() {
-        App.getDatabaseInstance().getMessageInstance().fetchPending(new BaseDatabseHelper.DatabaseCallback<List<Message>>() {
-            @Override
-            public void onFinished(final List<Message> result) {
-                if(result !=null) {
-                    UiThread.getInstance().post(new Runnable() {
-                        @Override
-                        public void run() {
-                            view.listLoadingProgress.setVisibility(android.view.View.GONE);
-                            view.emptyView.setVisibility(View.VISIBLE);
-                            adapter.setItems(result);
-                            listView.setAdapter(adapter);
-                        }
-                    });
-                } else {
-                    toastLong("No pending messages");
-                }
-
-            }
-
-            @Override
-            public void onError(Exception exception) {
-
-            }
-        });
     }
 
 }

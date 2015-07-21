@@ -14,9 +14,10 @@ target
 out
 proguard.cfg
 proguard-project.txt
-build
+build/
 .gradle
 gradle-app.setting
 gradle.properties
 Gemfile.lock
 *~
+public

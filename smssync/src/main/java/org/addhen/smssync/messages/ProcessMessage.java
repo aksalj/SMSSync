@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2010 - 2015 Ushahidi Inc
+ * All rights reserved
+ * Contact: team@ushahidi.com
+ * Website: http://www.ushahidi.com
+ * GNU Lesser General Public License Usage
+ * This file may be used under the terms of the GNU Lesser
+ * General Public License version 3 as published by the Free Software
+ * Foundation and appearing in the file LICENSE.LGPL included in the
+ * packaging of this file. Please review the following information to
+ * ensure the GNU Lesser General Public License version 3 requirements
+ * will be met: http://www.gnu.org/licenses/lgpl.html.
+ *
+ * If you have questions regarding the use of this file, please contact
+ * Ushahidi developers at team@ushahidi.com.
+ */
+
 package org.addhen.smssync.messages;
 
 import com.google.gson.Gson;
@@ -5,7 +22,6 @@ import com.google.gson.Gson;
 import org.addhen.smssync.App;
 import org.addhen.smssync.R;
 import org.addhen.smssync.controllers.MessageResultsController;
-import org.addhen.smssync.database.BaseDatabseHelper;
 import org.addhen.smssync.models.Filter;
 import org.addhen.smssync.models.Message;
 import org.addhen.smssync.models.MessagesUUIDSResponse;
@@ -15,6 +31,7 @@ import org.addhen.smssync.models.SyncUrl;
 import org.addhen.smssync.net.MainHttpClient;
 import org.addhen.smssync.net.MessageSyncHttpClient;
 import org.addhen.smssync.prefs.Prefs;
+import org.addhen.smssync.state.ReloadMessagesEvent;
 import org.addhen.smssync.util.Logger;
 import org.addhen.smssync.util.SentMessagesUtil;
 import org.addhen.smssync.util.Util;
@@ -59,17 +76,8 @@ public class ProcessMessage {
         Logger.log(TAG,
                 "saveMessage(): save text messages as received from the user's phone");
         App.getDatabaseInstance().getMessageInstance()
-                .put(message, new BaseDatabseHelper.DatabaseCallback<Void>() {
-                    @Override
-                    public void onFinished(Void result) {
-                        // Do nothing
-                    }
-
-                    @Override
-                    public void onError(Exception exception) {
-                        // Do nothing
-                    }
-                });
+                .put(message);
+        App.bus.post(new ReloadMessagesEvent());
         return true;
     }
 
@@ -137,50 +145,51 @@ public class ProcessMessage {
     /**
      * Synchronizes pending messages to configured sync URL. This takes into account
      * keyword filtering
-     * @param message The message to be sync'd to the Sync URL.
      *
+     * @param message The message to be sync'd to the Sync URL.
      * @return boolean
      */
     public boolean routePendingMessage(Message message) {
         boolean status = false;
-        Logger.log(TAG,"message by uuid ");
+        Logger.log(TAG, "message by uuid ");
         if (!Util.isConnected(context)) {
             return status;
         }
-            List<SyncUrl> result = fetchEnabledSyncUrl();
+        List<SyncUrl> result = fetchEnabledSyncUrl();
 
-            for (final SyncUrl syncUrl : result) {
-                // white listed is enabled
-                if (prefs.enableWhitelist().get()) {
-                    List<Filter> filters = App.getDatabaseInstance().getFilterInstance().fetchByStatus(
-                            Filter.Status.WHITELIST);
-                    for (Filter filter : filters) {
-                        if (filter.getPhoneNumber()
-                                .equals(message.getPhoneNumber())) {
-                            if(processMessage(message, syncUrl)) {
-                                postToSentBox(message);
-                            }
+        for (final SyncUrl syncUrl : result) {
+            // white listed is enabled
+            if (prefs.enableWhitelist().get()) {
+                List<Filter> filters = App.getDatabaseInstance().getFilterInstance().fetchByStatus(
+                        Filter.Status.WHITELIST);
+                for (Filter filter : filters) {
+                    if (filter.getPhoneNumber()
+                            .equals(message.getPhoneNumber())) {
+                        if (processMessage(message, syncUrl)) {
+                            postToSentBox(message);
                         }
                     }
-                    return true;
                 }
+                return true;
+            }
 
-                if (prefs.enableBlacklist().get()) {
-                    List<Filter> filters = App.getDatabaseInstance().getFilterInstance().fetchByStatus(Filter.Status.BLACKLIST);
-                    for(Filter filter : filters) {
-                        if (filter.getPhoneNumber().equals(message.getPhoneNumber())) {
-                            Logger.log("message",
-                                    " from:" + message.getPhoneNumber() + " filter:" + filter
-                                            .getPhoneNumber());
-                            return false;
-                        }
+            if (prefs.enableBlacklist().get()) {
+                List<Filter> filters = App.getDatabaseInstance().getFilterInstance()
+                        .fetchByStatus(Filter.Status.BLACKLIST);
+                for (Filter filter : filters) {
+                    if (filter.getPhoneNumber().equals(message.getPhoneNumber())) {
+                        Logger.log("message",
+                                " from:" + message.getPhoneNumber() + " filter:" + filter
+                                        .getPhoneNumber());
+                        return false;
                     }
-                } else {
-                    if(processMessage(message,syncUrl)) {
-                        postToSentBox(message);
-                    }
+                }
+            } else {
+                if (processMessage(message, syncUrl)) {
+                    postToSentBox(message);
                 }
             }
+        }
 
         status = true;
 
@@ -191,6 +200,7 @@ public class ProcessMessage {
         Logger.log(TAG, " message ID " + message.getUuid());
         App.getDatabaseInstance().getMessageInstance()
                 .deleteByUuid(message.getUuid());
+        App.bus.post(new ReloadMessagesEvent());
     }
 
     /**
@@ -206,7 +216,7 @@ public class ProcessMessage {
         }
 
         if (response != null && response.getPayload() != null
-                && response.getPayload().getMessages().size() > 0) {
+                && (!Util.isEmpty(response.getPayload().getMessages()))) {
             for (Message msg : response.getPayload().getMessages()) {
                 sendTaskSms(msg);
             }
@@ -252,11 +262,14 @@ public class ProcessMessage {
             try {
                 client.execute();
                 final Gson gson = new Gson();
-                smssyncResponses = gson.fromJson(client.getResponse(),
-                        SmssyncResponse.class);
+                final String response = client.getResponse();
+                Util.logActivities(context, "HTTP Client Response: " + response);
+                smssyncResponses = gson.fromJson(response, SmssyncResponse.class);
             } catch (Exception e) {
-                e.printStackTrace();
-                Util.logActivities(context, "Task crashed: " + e.getMessage());
+                Logger.log(TAG, "Task checking crashed " + e.getMessage() + " response: " + client
+                        .getResponse());
+                Util.logActivities(context,
+                        "Task crashed: " + e.getMessage() + " response: " + client.getResponse());
             }
 
             if (smssyncResponses != null) {
@@ -358,12 +371,13 @@ public class ProcessMessage {
                 for (final SyncUrl syncUrl : result) {
                     // white listed is enabled
                     if (prefs.enableWhitelist().get()) {
-                        List<Filter> filters = App.getDatabaseInstance().getFilterInstance().fetchByStatus(
-                                Filter.Status.WHITELIST);
+                        List<Filter> filters = App.getDatabaseInstance().getFilterInstance()
+                                .fetchByStatus(
+                                        Filter.Status.WHITELIST);
                         for (Filter filter : filters) {
                             if (filter.getPhoneNumber()
                                     .equals(message.getPhoneNumber())) {
-                                if( processMessage(message, syncUrl)) {
+                                if (processMessage(message, syncUrl)) {
                                     deleteFromSmsInbox(message);
                                 } else {
                                     savePendingMessage(message);
@@ -374,8 +388,9 @@ public class ProcessMessage {
                     }
 
                     if (prefs.enableBlacklist().get()) {
-                        List<Filter> filters = App.getDatabaseInstance().getFilterInstance().fetchByStatus(Filter.Status.BLACKLIST);
-                        for(Filter filter : filters) {
+                        List<Filter> filters = App.getDatabaseInstance().getFilterInstance()
+                                .fetchByStatus(Filter.Status.BLACKLIST);
+                        for (Filter filter : filters) {
                             if (filter.getPhoneNumber().equals(message.getPhoneNumber())) {
                                 Logger.log("message",
                                         " from:" + message.getPhoneNumber() + " filter:" + filter
@@ -384,7 +399,7 @@ public class ProcessMessage {
                             }
                         }
                     } else {
-                        if(processMessage(message,syncUrl)){
+                        if (processMessage(message, syncUrl)) {
                             deleteFromSmsInbox(message);
                         } else {
                             savePendingMessage(message);
@@ -436,6 +451,7 @@ public class ProcessMessage {
                 Logger.log(TAG, syncUrl.getUrl());
 
                 if (message.getType() == Message.Type.PENDING) {
+                    Logger.log(TAG, "Process message with keyword filtering enabled " + message);
                     posted = syncReceivedSms(message, client);
                     if (posted) {
                         postToSentBox(message);
@@ -443,12 +459,10 @@ public class ProcessMessage {
                 } else {
                     posted = sendTaskSms(message);
                 }
-
             }
-
         } else { // there is no filter text set up on a sync URL
-
             if (message.getType() == Message.Type.PENDING) {
+                Logger.log(TAG, "Process message with keyword filtering disabled " + message);
                 posted = syncReceivedSms(message, client);
                 setErrorMessage(syncUrl.getUrl());
                 if (posted) {
@@ -460,18 +474,22 @@ public class ProcessMessage {
         }
 
         // Update number of tries.
+        if (prefs.enableRetry().get() && message.getType() == Message.Type.PENDING) {
+            Logger.log(TAG, "Process pending message retry enabled " + message);
+            if (!posted) {
+                if (message.getRetries() >= prefs.retries().get()) {
+                    Logger.log(TAG, "Delete failed pending message using message retry feature");
+                    // Delete from db
+                    deleteMessage(message);
+                } else {
+                    // Increase message's number of tries for future comparison to know when to delete it.
+                    int retries = message.getRetries() + 1;
+                    message.setRetries(retries);
+                    Logger.log(TAG,
+                            "Increase retry value because pending message is refusing to be sent");
+                    App.getDatabaseInstance().getMessageInstance().update(message);
 
-        if(!posted) {
-            Logger.log(TAG, "Messages Not posted: " + message);
-            if (message.getRetries() > prefs.retries().get()) {
-                // Delete from db
-                deleteMessage(message);
-            } else {
-                // Increase message's number of tries for future comparison to know when to delete it.
-                int retries = message.getRetries() + 1;
-                message.setRetries(retries);
-                App.getDatabaseInstance().getMessageInstance().update(message);
-
+                }
             }
         }
         return posted;
@@ -489,7 +507,7 @@ public class ProcessMessage {
      * @param message the message
      */
     public boolean postToSentBox(Message message) {
-        Logger.log(TAG, "postToSentBox(): post message to sentbox "+message.toString());
+        Logger.log(TAG, "postToSentBox(): post message to sentbox " + message.toString());
         return SentMessagesUtil.processSentMessages(message);
 
     }
@@ -512,13 +530,11 @@ public class ProcessMessage {
             final Long timeMills = System.currentTimeMillis();
             message.setDate(new Date(timeMills));
         }
-        if(message.getUuid() ==null || TextUtils.isEmpty(message.getUuid())) {
+        if (message.getUuid() == null || TextUtils.isEmpty(message.getUuid())) {
             message.setUuid(processSms.getUuid());
         }
-
         message.setType(Message.Type.TASK);
-        return processSms
-                .sendSms(message);
+        return processSms.sendSms(message);
     }
 
 }
